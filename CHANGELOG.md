@@ -5,6 +5,11 @@ to the latest `v1.x.y`.
 
 ## Unreleased
 
+### Added
+
+- `[openapi] defaults_optional = false` generates fields with defaults as required, for a
+  frontend that reads them as a response does.
+
 ## 1.1.0 — 2026-11-02
 
 ### Added

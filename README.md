@@ -115,7 +115,7 @@ through the environment (`DOCKER`, `NPM`, `NPX`, `RUFF`, `GH` and so on).
 | `bin/version.py` | checks, sets and prints the release version across manifests, the compose file and `CHANGELOG.md` | `[version] pyprojects`, `npm`, `images`, `compose` |
 | `bin/release.sh` | cuts a release on main: version, dated changelog, commit and tag | `[release] title`, `note` |
 | `bin/github-release.sh` | creates a pushed tag's GitHub release from its changelog section | `[release] title` |
-| `bin/openapi.sh` | exports the OpenAPI schema and generates TypeScript types with a pinned generator | `[openapi] schema`, `types`, `python` |
+| `bin/openapi.sh` | exports the OpenAPI schema and generates TypeScript types with a pinned generator | `[openapi] schema`, `types`, `python`, `defaults_optional` |
 | `bin/export-openapi.py` | prints the app's schema, sorted and with its version fixed | `[openapi] app`: a `module:callable` building the app |
 | `bin/test-bruno.sh` | runs a Bruno collection against the repository's fixture server | `[bruno]` |
 | `bin/app-icons.sh` | renders the home-screen icons from an SVG | `[icons] svg`, `out`, `background` |

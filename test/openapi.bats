@@ -34,6 +34,21 @@ TOML
   [[ "$output" == *"Generating frontend/src/lib/api-types.ts"* ]]
 }
 
+@test "openapi leaves fields with defaults required when devtools.toml says so" {
+  printf 'defaults_optional = false\n' >> devtools.toml
+  PYTHON="$STUBS/python" NPM="$STUBS/npm" NPX="$STUBS/npx" run_script bin/openapi.sh
+  [ "$status" -eq 0 ]
+  [ "$(tail -1 "$STUB_LOG")" = "npx --yes --registry=https://proxy.example/npm/ openapi-typescript@7.13.0 frontend/openapi.json -o frontend/src/lib/api-types.ts" ]
+}
+
+@test "openapi refuses a defaults_optional that is not a boolean" {
+  printf 'defaults_optional = "yes"\n' >> devtools.toml
+  PYTHON="$STUBS/python" NPM="$STUBS/npm" NPX="$STUBS/npx" run_script bin/openapi.sh
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"defaults_optional must be true or false"* ]]
+  refute grep -q '^npx' "$STUB_LOG"
+}
+
 @test "openapi takes the interpreter from devtools.toml when PYTHON is unset" {
   mkdir -p venv && cp "$STUBS/python" venv/python
   NPM="$STUBS/npm" NPX="$STUBS/npx" run_script bin/openapi.sh
