@@ -1,8 +1,8 @@
 # devtools
 
-Shared build and CI tooling for my repositories: the scripts, Makefile targets and config presets
-each of them would otherwise carry its own copy of. Nothing here runs in production; it runs in CI
-and on a developer's machine.
+Shared build and CI tooling: the scripts, Makefile targets and config presets that a repository
+would otherwise carry its own copy of. Nothing here is part of a running application; it runs in
+CI and on a developer's machine.
 
 A repository commits one file from here, the fetcher, and declares in `devtools.toml` what to
 fetch. Everything else is downloaded into a gitignored `.devtools/` at a pinned ref, so a fix made
