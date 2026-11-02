@@ -23,5 +23,6 @@ select = ["E", "F", "W", "I", "B", "C4", "UP", "ARG", "SIM"]
 "/**/tests/**" = ["ARG001", "ARG002"]
 "/**/test/**" = ["ARG001", "ARG002"]
 # Written by `alembic revision --autogenerate`; reflowing them by hand would be undone by the next
-# generated migration.
-"/**/alembic/versions/*" = ["E501", "W291"]
+# generated migration. Their import order depends on whether ruff sees the local alembic/ directory
+# as a package, which it does when the config sits beside it.
+"/**/alembic/versions/*" = ["E501", "W291", "I001"]

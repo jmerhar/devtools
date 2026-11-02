@@ -115,7 +115,7 @@ do. Commands they drive can be replaced through the environment (`DOCKER`, `NPM`
 
 **`config/ruff.toml`** holds the shared ruff rules: line length 100, Python 3.14, the rule sets
 `E F W I B C4 UP ARG SIM`, unused-argument checks off under `tests/` and `test/`, and line-length
-checks off in Alembic's generated migrations. A repository's `ruff.toml` extends it:
+and import-order checks off in Alembic's generated migrations. A repository's `ruff.toml` extends it:
 
 ```toml
 extend = ".devtools/config/ruff.toml"

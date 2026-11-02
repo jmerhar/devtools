@@ -5,6 +5,13 @@ to the latest `v1.x.y`.
 
 ## Unreleased
 
+## 1.0.1 — 2026-11-02
+
+### Changed
+
+- `config/ruff.toml` also ignores import order (I001) in Alembic's generated migrations, which
+  ruff sorts differently when the config sits beside the local `alembic/` directory.
+
 ## 1.0.0 — 2026-11-02
 
 ### Added
