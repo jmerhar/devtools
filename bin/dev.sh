@@ -36,7 +36,7 @@ done
 # reads .env itself, so it is left alone. npm is asked from / so that a project .npmrc pinning
 # the public registry does not hide the one this machine is configured for.
 if [ -z "${NPM_REGISTRY:-}" ] && ! grep -qsE '^[[:space:]]*(export[[:space:]]+)?NPM_REGISTRY=' .env; then
-  registry=$(cd / && "$npm" config get registry 2>/dev/null || true)
+  registry=$(cd / && "$npm" config get registry 2>/dev/null) || registry=""
   # npm answers "undefined" when nothing is configured, which is not a URL.
   if [ -n "$registry" ] && [ "$registry" != "undefined" ]; then
     export NPM_REGISTRY="$registry"
