@@ -111,6 +111,9 @@ through the environment (`DOCKER`, `NPM`, `NPX`, `RUFF`, `GH` and so on).
 | `bin/check-compose.sh` | `docker compose config -q` for each stack | `[compose] stacks`: lists of files passed together with `-f` |
 | `bin/check-lockfile.sh` | checks every npm lockfile resolves only to the public registry | `[npm] dirs`, plus every tracked `package-lock.json` |
 | `bin/lockfile.sh` | regenerates lockfiles in a Linux node container, rewriting proxy URLs to the public registry | `[npm] dirs`, `node_image` |
+| `bin/version.py` | checks, sets and prints the release version across manifests, the compose file and `CHANGELOG.md` | `[version] pyprojects`, `npm`, `images`, `compose` |
+| `bin/release.sh` | cuts a release on main: version, dated changelog, commit and tag | `[release] title`, `note` |
+| `bin/github-release.sh` | creates a pushed tag's GitHub release from its changelog section | `[release] title` |
 | `bin/dev.sh` | `docker compose up --build` with hot reload, handing compose the registry npm reaches as `NPM_REGISTRY` unless the environment or `.env` sets it | `[dev] compose_files`: a list of files |
 | `bin/devtools-config.py` | prints one setting, for the scripts above | — |
 

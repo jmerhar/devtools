@@ -9,6 +9,8 @@ to the latest `v1.x.y`.
 
 - `bin/lockfile.sh` and `bin/check-lockfile.sh`, for any number of npm directories; the check
   compares URLs as a literal prefix and also covers every lockfile git tracks.
+- `bin/version.py`, `bin/release.sh` and `bin/github-release.sh`, with the manifests, images and
+  release title in devtools.toml, and development versions such as `1.2.0.dev0`.
 
 ## 1.0.1 — 2026-11-02
 
