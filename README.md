@@ -107,6 +107,7 @@ through the environment (`DOCKER`, `NPM`, `NPX`, `RUFF`, `GH` and so on).
 
 | Script | Does | Reads from `devtools.toml` |
 |---|---|---|
+| `bin/lint.sh` | runs the listed checks and extra commands, reporting every failure | `[lint] checks`, `extra`, `ruff` |
 | `bin/ci-ruff.sh` | `ruff check` and `ruff format --check` over the repository | — |
 | `bin/check-compose.sh` | `docker compose config -q` for each stack | `[compose] stacks`: lists of files passed together with `-f` |
 | `bin/check-lockfile.sh` | checks every npm lockfile resolves only to the public registry | `[npm] dirs`, plus every tracked `package-lock.json` |
@@ -116,9 +117,16 @@ through the environment (`DOCKER`, `NPM`, `NPX`, `RUFF`, `GH` and so on).
 | `bin/github-release.sh` | creates a pushed tag's GitHub release from its changelog section | `[release] title` |
 | `bin/openapi.sh` | exports the OpenAPI schema and generates TypeScript types with a pinned generator | `[openapi] schema`, `types`, `python` |
 | `bin/export-openapi.py` | prints the app's schema, sorted and with its version fixed | `[openapi] app`: a `module:callable` building the app |
+| `bin/test-bruno.sh` | runs a Bruno collection against the repository's fixture server | `[bruno]` |
+| `bin/app-icons.sh` | renders the home-screen icons from an SVG | `[icons] svg`, `out`, `background` |
+| `bin/inspect.sh` | runs IntelliJ IDEA's inspections offline | `[inspect] ignore` |
 | `bin/dev.sh` | `docker compose up --build` with hot reload, handing compose the registry npm reaches as `NPM_REGISTRY` unless the environment or `.env` sets it | `[dev] compose_files`: a list of files |
 | `bin/devtools-config.py` | prints one setting, for the scripts above | — |
 
+Some scripts run another beside them, which must be listed in `[fetch] files` too:
+`lockfile.sh` runs `check-lockfile.sh`, `release.sh` and `github-release.sh` run `version.py`,
+`openapi.sh` runs `export-openapi.py`, and `lint.sh` runs the script of each check it lists. Each
+names a missing one before doing anything.
 
 ## Config presets
 

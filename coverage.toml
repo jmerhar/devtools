@@ -15,9 +15,9 @@ html = "coverage/shell"
 # test/test_helper.bash applies kcov to each script the suites run, reading COVERAGE_DIR.
 command = "tooling/measure.sh"
 # The fetcher downloads with curl, the suites run under bats, one drives make/devtools.mk, and
-# check-lockfile reads what git tracks.
-packages = ["bats", "curl", "make", "git"]
-requires = ["bats", "curl", "make", "git"]
+# check-lockfile reads what git tracks, and lint runs ShellCheck.
+packages = ["bats", "curl", "make", "git", "shellcheck"]
+requires = ["bats", "curl", "make", "git", "shellcheck"]
 # The scripts use mapfile and other bash 4 features.
 min_bash = 4
 # Every line is covered; the margin tolerates a defensive line a test cannot reach.
