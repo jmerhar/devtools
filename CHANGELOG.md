@@ -5,6 +5,11 @@ to the latest `v1.x.y`.
 
 ## Unreleased
 
+### Added
+
+- `bin/lockfile.sh` and `bin/check-lockfile.sh`, for any number of npm directories; the check
+  compares URLs as a literal prefix and also covers every lockfile git tracks.
+
 ## 1.0.1 — 2026-11-02
 
 ### Changed

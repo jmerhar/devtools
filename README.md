@@ -102,14 +102,18 @@ The repository keeps its own `test`, `lint`, `check`, `dev`, `build` and `deploy
 ## Scripts
 
 Every script acts on the current directory, so run it from the repository root, as make and CI
-do. Commands they drive can be replaced through the environment (`DOCKER`, `NPM`, `RUFF`).
+do. Each one's header documents its settings in full; the commands it drives can be replaced
+through the environment (`DOCKER`, `NPM`, `NPX`, `RUFF`, `GH` and so on).
 
 | Script | Does | Reads from `devtools.toml` |
 |---|---|---|
 | `bin/ci-ruff.sh` | `ruff check` and `ruff format --check` over the repository | — |
 | `bin/check-compose.sh` | `docker compose config -q` for each stack | `[compose] stacks`: lists of files passed together with `-f` |
+| `bin/check-lockfile.sh` | checks every npm lockfile resolves only to the public registry | `[npm] dirs`, plus every tracked `package-lock.json` |
+| `bin/lockfile.sh` | regenerates lockfiles in a Linux node container, rewriting proxy URLs to the public registry | `[npm] dirs`, `node_image` |
 | `bin/dev.sh` | `docker compose up --build` with hot reload, handing compose the registry npm reaches as `NPM_REGISTRY` unless the environment or `.env` sets it | `[dev] compose_files`: a list of files |
 | `bin/devtools-config.py` | prints one setting, for the scripts above | — |
+
 
 ## Config presets
 

@@ -45,3 +45,26 @@ make_stub() {
   } > "$path"
   chmod +x "$path"
 }
+
+# Fails when the command succeeds. bats ignores a `!`-negated command anywhere but last in a test,
+# so a negative assertion goes through this.
+refute() {
+  if "$@"; then
+    echo "expected to fail: $*" >&2
+    return 1
+  fi
+}
+
+# Runs a script through a link in alone/, a directory holding links to some of bin/ but not
+# others, to show what the script does when a script it runs beside it is missing. Traced by kcov
+# when measuring, which credits the lines to the linked script.
+# Arguments: the script's name, then its arguments.
+run_alone() {
+  local script="$REPO/alone/$1"
+  shift
+  if [ -n "${COVERAGE_DIR:-}" ]; then
+    run kcov --include-path="$DEVTOOLS_ROOT/bin" --exclude-pattern=.py "$COVERAGE_DIR" "$script" "$@"
+  else
+    run "$script" "$@"
+  fi
+}
