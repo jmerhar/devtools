@@ -1,0 +1,12 @@
+# Codecov is informational only; the enforcing gates run in CI, with their thresholds in
+# coverage.toml. Uploads use the CODECOV_TOKEN repository secret, one flag per suite.
+coverage:
+  status:
+    project:
+      default:
+        informational: true
+    patch:
+      default:
+        informational: true
+
+comment: false

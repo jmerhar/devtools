@@ -1,0 +1,4 @@
+# This repository's own use of the fetcher: only the coverage tooling, since everything else it
+# would fetch is here already.
+[fetch]
+coverage = true

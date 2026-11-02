@@ -1,0 +1,19 @@
+# Python
+__pycache__/
+.venv/
+
+# Test and coverage output
+.coverage
+coverage/
+coverage-upload/
+junit/
+.ruff_cache/
+
+# Editor and OS
+.idea/
+*.iml
+*.swp
+.DS_Store
+
+# Claude Code local settings
+.claude/settings.local.json

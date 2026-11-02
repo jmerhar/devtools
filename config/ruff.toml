@@ -1,0 +1,27 @@
+# The shared ruff configuration. A repository's own ruff.toml extends it and adds what is its own,
+# such as isort's known-first-party:
+#
+#   extend = ".devtools/config/ruff.toml"
+#
+#   [lint.isort]
+#   known-first-party = ["myapp"]
+line-length = 100
+target-version = "py314"
+
+[lint]
+# On top of the defaults (pyflakes and pycodestyle errors): unused arguments and imports,
+# comprehension and builtin misuse, and the bug-prone patterns in flake8-bugbear -- mutable
+# default arguments and `except` clauses that swallow everything among them.
+select = ["E", "F", "W", "I", "B", "C4", "UP", "ARG", "SIM"]
+
+[lint.per-file-ignores]
+# ruff resolves a relative pattern against the directory of the file that declares it, which for
+# this file is .devtools/config/, so the patterns are absolute to match anywhere in the repository.
+#
+# A pytest fixture is very often requested for what it does rather than for its value, and naming
+# it in the signature is the only way to ask for it.
+"/**/tests/**" = ["ARG001", "ARG002"]
+"/**/test/**" = ["ARG001", "ARG002"]
+# Written by `alembic revision --autogenerate`; reflowing them by hand would be undone by the next
+# generated migration.
+"/**/alembic/versions/*" = ["E501", "W291"]
