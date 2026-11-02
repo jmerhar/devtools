@@ -5,6 +5,8 @@ to the latest `v1.x.y`.
 
 ## Unreleased
 
+## 1.1.0 — 2026-11-02
+
 ### Added
 
 - `bin/lint.sh`, which runs the checks `[lint]` lists and the repository's own commands.
