@@ -11,6 +11,8 @@ to the latest `v1.x.y`.
   compares URLs as a literal prefix and also covers every lockfile git tracks.
 - `bin/version.py`, `bin/release.sh` and `bin/github-release.sh`, with the manifests, images and
   release title in devtools.toml, and development versions such as `1.2.0.dev0`.
+- `bin/openapi.sh` and `bin/export-openapi.py`, which builds the app through a callable the
+  repository names.
 
 ## 1.0.1 — 2026-11-02
 

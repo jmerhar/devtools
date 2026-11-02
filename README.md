@@ -114,6 +114,8 @@ through the environment (`DOCKER`, `NPM`, `NPX`, `RUFF`, `GH` and so on).
 | `bin/version.py` | checks, sets and prints the release version across manifests, the compose file and `CHANGELOG.md` | `[version] pyprojects`, `npm`, `images`, `compose` |
 | `bin/release.sh` | cuts a release on main: version, dated changelog, commit and tag | `[release] title`, `note` |
 | `bin/github-release.sh` | creates a pushed tag's GitHub release from its changelog section | `[release] title` |
+| `bin/openapi.sh` | exports the OpenAPI schema and generates TypeScript types with a pinned generator | `[openapi] schema`, `types`, `python` |
+| `bin/export-openapi.py` | prints the app's schema, sorted and with its version fixed | `[openapi] app`: a `module:callable` building the app |
 | `bin/dev.sh` | `docker compose up --build` with hot reload, handing compose the registry npm reaches as `NPM_REGISTRY` unless the environment or `.env` sets it | `[dev] compose_files`: a list of files |
 | `bin/devtools-config.py` | prints one setting, for the scripts above | — |
 
