@@ -50,7 +50,7 @@ esac
 scratch=""
 server_pid=""
 bruno_pid=""
-# shellcheck disable=SC2329  # run by the EXIT trap
+# shellcheck disable=SC2317,SC2329  # run by the EXIT trap
 stop() {
   local pid
   for pid in "$bruno_pid" "$server_pid"; do
