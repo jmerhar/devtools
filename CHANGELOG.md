@@ -5,6 +5,8 @@ to the latest `v1.x.y`.
 
 ## Unreleased
 
+## 1.0.0 — 2026-11-02
+
 ### Added
 
 - `fetch/devtools-fetch.sh`: the fetcher each repository vendors as `bin/devtools-fetch.sh`. It
