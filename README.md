@@ -27,8 +27,14 @@ ref = "v1"
 files = [
   "make/devtools.mk",
   "config/ruff.toml",
+  "bin/ci-ruff.sh",
+  "bin/check-compose.sh",
 ]
 coverage = true   # coverage-report.py and run-kcov.sh from jmerhar/coverage at its own v1
+
+# Settings for the fetched scripts; each script's section below names what it reads.
+[compose]
+stacks = [["docker-compose.yml"], ["docker-compose.yml", "docker-compose.build.yml"]]
 ```
 
 Each file keeps its path under `.devtools/`, so `make/devtools.mk` lands at
@@ -96,11 +102,14 @@ The repository keeps its own `test`, `lint`, `check`, `dev`, `build` and `deploy
 ## Scripts
 
 Every script acts on the current directory, so run it from the repository root, as make and CI
-do. Commands they drive can be replaced through the environment.
+do. Commands they drive can be replaced through the environment (`DOCKER`, `NPM`, `RUFF`).
 
 | Script | Does | Reads from `devtools.toml` |
 |---|---|---|
-| `bin/devtools-config.py` | prints one setting, for the fetched scripts | — |
+| `bin/ci-ruff.sh` | `ruff check` and `ruff format --check` over the repository | — |
+| `bin/check-compose.sh` | `docker compose config -q` for each stack | `[compose] stacks`: lists of files passed together with `-f` |
+| `bin/dev.sh` | `docker compose up --build` with hot reload, handing compose the registry npm reaches as `NPM_REGISTRY` unless the environment or `.env` sets it | `[dev] compose_files`: a list of files |
+| `bin/devtools-config.py` | prints one setting, for the scripts above | — |
 
 ## Config presets
 

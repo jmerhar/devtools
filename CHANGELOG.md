@@ -13,3 +13,4 @@ to the latest `v1.x.y`.
 - `bin/devtools-config.py`: prints one setting from `devtools.toml` for the fetched scripts.
 - `make/devtools.mk`: `help`, `devtools-update` and `coverage-tooling`.
 - `config/ruff.toml`: the shared ruff rules.
+- `bin/ci-ruff.sh`, `bin/check-compose.sh` and `bin/dev.sh`.
