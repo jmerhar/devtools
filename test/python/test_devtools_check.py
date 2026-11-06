@@ -111,6 +111,38 @@ class TestDependabot:
             '        update-types:\n          - "minor"\n          - "patch"\n'
         )
 
+    def test_one_update_over_several_directories(self):
+        config = {
+            "dependabot": {
+                "update": [
+                    {"ecosystem": "pip", "directories": ["/core", "/api"], "group": "python"}
+                ]
+            }
+        }
+        text = check.dependabot(config).split('"pip"')[1]
+        assert text.startswith('\n    directories:\n      - "/core"\n      - "/api"\n    schedule:')
+
+    @pytest.mark.parametrize(
+        "entry",
+        [
+            {"ecosystem": "pip", "directory": "/", "directories": ["/a"]},
+            {"ecosystem": "pip", "directories": []},
+        ],
+    )
+    def test_needs_exactly_one_of_directory_and_directories(self, entry):
+        with pytest.raises(check.CheckError, match="needs a directory or directories, not both"):
+            check.dependabot({"dependabot": {"update": [entry]}})
+
+    def test_refuses_a_directory_listed_twice_across_updates(self):
+        updates = [
+            {"ecosystem": "pip", "directories": ["/a", "/b"]},
+            {"ecosystem": "pip", "directory": "/b"},
+        ]
+        with pytest.raises(check.CheckError, match="dependabot lists pip in /b twice"):
+            check.dependabot({"dependabot": {"update": updates}})
+        with pytest.raises(check.CheckError, match="directories must list strings"):
+            check.dependabot({"dependabot": {"update": [{"ecosystem": "pip", "directories": [1]}]}})
+
     def test_an_explicit_exclude_replaces_the_default(self):
         config = {
             "dependabot": {
@@ -135,7 +167,7 @@ class TestDependabot:
             ({"updates": []}, "[dependabot] has unknown keys: updates"),
             ({"update": [1]}, "[[dependabot.update]] 1 must be a table"),
             ({"update": [{"directory": "/"}]}, "[[dependabot.update]] 1 needs a ecosystem"),
-            ({"update": [{"ecosystem": "npm"}]}, "[[dependabot.update]] 1 needs a directory"),
+            ({"update": [{"ecosystem": "npm"}]}, "needs a directory or directories, not both"),
             ({"update": [{"ecosystem": "npm", "directory": "/", "dir": "/"}]}, "unknown keys: dir"),
             (
                 {"update": [{"ecosystem": "npm", "directory": "/", "cooldown": -1}]},

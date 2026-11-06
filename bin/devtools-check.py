@@ -21,7 +21,7 @@ The checks:
 
     [[dependabot.update]]
     ecosystem = "npm"                   # npm, pip, gradle, docker, ...
-    directory = "/frontend"
+    directory = "/frontend"             # or directories = [...], for one pull request over several
     group = "frontend"                  # optional, the default is the ecosystem's name
     comment = "The interface."          # optional, written above the entry
     update_types = ["minor", "patch"]   # optional: the group takes only these
@@ -51,6 +51,7 @@ COOLDOWN_EXCLUDE = {"pip": ["jigkit"], "npm": ["@jmerhar/*"]}
 UPDATE_KEYS = {
     "ecosystem": str,
     "directory": str,
+    "directories": list,
     "group": str,
     "comment": str,
     "update_types": list,
@@ -128,9 +129,10 @@ def updates(config: dict) -> list[dict]:
     for n, entry in enumerate(table.get("update", []), 1):
         where = f"[[dependabot.update]] {n}"
         check_table(entry, UPDATE_KEYS, where)
-        for key in ("ecosystem", "directory"):
-            if not entry.get(key):
-                raise CheckError(f"{where} needs a {key}")
+        if not entry.get("ecosystem"):
+            raise CheckError(f"{where} needs a ecosystem")
+        if bool(entry.get("directory")) == bool(entry.get("directories")):
+            raise CheckError(f"{where} needs a directory or directories, not both")
         if not NAME.fullmatch(entry.get("group", entry["ecosystem"])):
             raise CheckError(f"{where} group must be letters, digits, '-' and '_'")
         if entry.get("cooldown", 3) < 0:
@@ -141,16 +143,17 @@ def updates(config: dict) -> list[dict]:
                 raise CheckError(f"{where} ignore needs a dependency")
             if not all(isinstance(v, str) for v in ignore.get("update_types", [])):
                 raise CheckError(f"{where} ignore update_types must list strings")
-        for key in ("update_types", "cooldown_exclude"):
+        for key in ("update_types", "cooldown_exclude", "directories"):
             if not all(isinstance(v, str) for v in entry.get(key, [])):
                 raise CheckError(f"{where} {key} must list strings")
         entries.append(entry)
     seen = set()
     for entry in entries:
-        key = (entry["ecosystem"], entry["directory"])
-        if key in seen:
-            raise CheckError(f"dependabot lists {entry['ecosystem']} in {entry['directory']} twice")
-        seen.add(key)
+        for directory in entry.get("directories") or [entry["directory"]]:
+            key = (entry["ecosystem"], directory)
+            if key in seen:
+                raise CheckError(f"dependabot lists {entry['ecosystem']} in {directory} twice")
+            seen.add(key)
     return entries
 
 
@@ -172,12 +175,13 @@ def dependabot(config: dict) -> str:
             lines.append("")
         if entry.get("comment"):
             lines += comment_lines(entry["comment"], "  ")
-        lines += [
-            f"  - package-ecosystem: {quote(ecosystem)}",
-            f"    directory: {quote(entry['directory'])}",
-            "    schedule:",
-            '      interval: "weekly"',
-        ]
+        lines.append(f"  - package-ecosystem: {quote(ecosystem)}")
+        if entry.get("directories"):
+            lines.append("    directories:")
+            lines += [f"      - {quote(d)}" for d in entry["directories"]]
+        else:
+            lines.append(f"    directory: {quote(entry['directory'])}")
+        lines += ["    schedule:", '      interval: "weekly"']
         days = entry.get("cooldown", 3)
         if days:
             lines += ["    cooldown:", f"      default-days: {days}"]

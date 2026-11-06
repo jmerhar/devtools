@@ -5,6 +5,10 @@ to the latest `v1.x.y`.
 
 ## Unreleased
 
+### Added
+
+- `[[dependabot.update]] directories`, one grouped pull request over several directories.
+
 ## 1.4.0 — 2026-11-06
 
 ### Added
