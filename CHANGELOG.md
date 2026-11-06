@@ -5,6 +5,8 @@ to the latest `v1.x.y`.
 
 ## Unreleased
 
+## 1.3.1 — 2026-11-06
+
 ### Fixed
 
 - `ci.py` refuses a URL with a password in a suite's commands or env, which GitHub masks and so
