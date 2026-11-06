@@ -345,6 +345,23 @@ class TestCoverage:
         assert (target / "backend" / "coverage.json").read_text() == "{}"
         assert (target / "backend" / "htmlcov" / "index.html").read_text() == "<html>"
 
+    def test_leaves_links_out(self, tmp_path):
+        source = tmp_path / "source"
+        report = source / "coverage" / "shell"
+        (report / "run.1").mkdir(parents=True)
+        (report / "run.1" / "index.html").write_text("<html>")
+        (report / "script.sh").symlink_to(report / "run.1")
+        (report / "outside").symlink_to("/etc/passwd")
+        archive = ci.pack({"name": "shell", "coverage": ["coverage/shell"]}, source)
+        with tarfile.open(archive) as tar:
+            names = tar.getnames()
+        assert "coverage/shell/run.1/index.html" in names
+        assert "coverage/shell/script.sh" not in names
+        assert "coverage/shell/outside" not in names
+        target = tmp_path / "target"
+        target.mkdir()
+        assert ci.unpack(source, target) == ["coverage-shell.tgz"]
+
     def test_refuses_to_pack_a_report_the_suite_did_not_write(self, tmp_path):
         with pytest.raises(ci.CIError, match="suite web left no web/coverage"):
             ci.pack({"name": "web", "coverage": ["web/coverage"]}, tmp_path)

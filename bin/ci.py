@@ -331,6 +331,16 @@ def write_env(entry: dict) -> str:
     return "".join(f"{key}={value}\n" for key, value in entry.get("env", {}).items())
 
 
+def _without_links(member: tarfile.TarInfo) -> tarfile.TarInfo | None:
+    """Leave symbolic and hard links out of an archive.
+
+    A report's links (kcov keeps one per traced script, pointing into its own output by absolute
+    path) are shortcuts no report reads, and a link can point outside the repository, which
+    unpacking refuses.
+    """
+    return None if member.issym() or member.islnk() else member
+
+
 def pack(entry: dict, root: Path) -> Path:
     """Pack a suite's coverage files, keeping their paths from the repository root.
 
@@ -351,7 +361,7 @@ def pack(entry: dict, root: Path) -> Path:
     archive = root / f"coverage-{entry['name']}.tgz"
     with tarfile.open(archive, "w:gz") as tar:
         for path in entry["coverage"]:
-            tar.add(root / path, arcname=path)
+            tar.add(root / path, arcname=path, filter=_without_links)
     return archive
 
 
