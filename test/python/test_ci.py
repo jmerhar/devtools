@@ -93,6 +93,13 @@ class TestLoad:
             }
         ]
 
+    def test_accepts_urls_without_a_password(self, repo):
+        repo(
+            '[[ci.suite]]\nname = "a"\nrun = "curl https://example.com/a:b && echo x@y"\n'
+            'env = { DB = "postgresql://user@localhost/db" }\n'
+        )
+        assert ci.load()["suites"][0]["env"]["DB"] == "postgresql://user@localhost/db"
+
     def test_keeps_a_suite_as_written(self, repo):
         repo(BACKEND)
         [backend] = ci.load()["suites"]
@@ -154,6 +161,18 @@ class TestLoad:
             ('[[ci.suite]]\nname = "a"\nrun = "x"\ncoverage = ["/etc/x"]\n', "inside the repo"),
             ('[[ci.suite]]\nname = "a"\nrun = "x"\ncoverage = ["a/../.."]\n', "inside the repo"),
             (LINT + LINT, "[[ci.suite]] names must be unique: lint"),
+            (
+                '[[ci.suite]]\nname = "a"\nrun = "x"\nenv = { DB = "postgresql://u:p@h/d" }\n',
+                "[[ci.suite]] a env DB holds a URL with a password",
+            ),
+            (
+                '[[ci.suite]]\nname = "a"\nrun = "curl https://u:secret@example.com/x"\n',
+                "[[ci.suite]] a run holds a URL with a password",
+            ),
+            (
+                '[[ci.suite]]\nname = "a"\nrun = "x"\nsetup = "git clone https://t:x@h/r"\n',
+                "[[ci.suite]] a setup holds a URL with a password",
+            ),
             ("[ci]\nimage = [1]\n", "[[ci.image]] 1 must be a table"),
             ('[[ci.image]]\ncontext = "."\n', "[[ci.image]] 1 needs an image"),
             ('[[ci.image]]\nimage = "x"\npaths = "a/"\n', "[[ci.image]] 1 paths must be a list"),

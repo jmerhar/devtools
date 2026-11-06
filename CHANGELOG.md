@@ -5,6 +5,11 @@ to the latest `v1.x.y`.
 
 ## Unreleased
 
+### Fixed
+
+- `ci.py` refuses a URL with a password in a suite's commands or env, which GitHub masks and so
+  drops the plan carrying it; a setup command can write such a value to `$GITHUB_ENV` instead.
+
 ## 1.3.0 — 2026-11-06
 
 ### Added

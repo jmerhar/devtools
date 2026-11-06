@@ -76,6 +76,9 @@ NAME = re.compile(r"[A-Za-z0-9_][A-Za-z0-9_.-]*")
 ENV_NAME = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
 # Changes that may alter how every image is built.
 EVERY_IMAGE = (".github/workflows/", "devtools.toml")
+# A URL carrying a password, which the runner masks wherever it appears; a job output holding one
+# is dropped, so the plan would lose its suites.
+URL_CREDENTIALS = re.compile(r"[A-Za-z][A-Za-z0-9+.-]*://[^/\s@]*:[^/\s@]*@")
 # Variables a step cannot set through $GITHUB_ENV, which the runner refuses or owns.
 RESERVED_ENV = re.compile(r"(GITHUB_|RUNNER_).*|NODE_OPTIONS|CI")
 
@@ -234,6 +237,12 @@ def suite(table: object, n: int) -> dict:
     timeout = table.get("timeout", 30)
     if timeout < 1:
         raise CIError(f"[[ci.suite]] {name} timeout must be a positive number of minutes")
+    for key in ("setup", "install", "run"):
+        if URL_CREDENTIALS.search(table.get(key, "")):
+            raise CIError(credentials_error(name, key))
+    for key, value in env.items():
+        if URL_CREDENTIALS.search(value):
+            raise CIError(credentials_error(name, f"env {key}"))
     return {
         "name": name,
         "python": table.get("python", False),
@@ -246,6 +255,14 @@ def suite(table: object, n: int) -> dict:
         "coverage": coverage,
         "timeout": timeout,
     }
+
+
+def credentials_error(name: str, where: str) -> str:
+    """Explain why a URL with a password cannot appear in a suite."""
+    return (
+        f"[[ci.suite]] {name} {where} holds a URL with a password, which GitHub masks, dropping "
+        "the plan that carries it; have the setup command write it to $GITHUB_ENV instead"
+    )
 
 
 def relative(path: str) -> bool:
