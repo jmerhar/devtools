@@ -87,6 +87,8 @@ Run it from the repository root; it needs `curl` and Python 3.11 or newer, for `
 |---|---|
 | `help` | lists the targets whose rule line ends in a `## description`, in `##@ Heading` sections |
 | `devtools-update` | runs the fetcher |
+| `devtools-check` | runs `devtools-check.py` |
+| `devtools-fix` | writes `.github/dependabot.yml` and `codecov.yml` as generated |
 | `coverage-tooling` | the same; refreshes the coverage tooling before a coverage run |
 
 It also sets `COVERAGE_TOOLING` to `.devtools/coverage`, for a repository's own coverage target:
@@ -122,6 +124,7 @@ through the environment (`DOCKER`, `NPM`, `NPX`, `RUFF`, `GH` and so on).
 | `bin/inspect.sh` | runs IntelliJ IDEA's inspections offline | `[inspect] ignore` |
 | `bin/dev.sh` | `docker compose up --build` with hot reload, handing compose the registry npm reaches as `NPM_REGISTRY` unless the environment or `.env` sets it | `[dev] compose_files`: a list of files |
 | `bin/ci.py` | plans the jobs of `python-docker-app.yml` and carries their coverage reports | `[ci]` |
+| `bin/devtools-check.py` | checks the fetcher and the generated files are in step, and writes them | `[check]`, `[dependabot]`, `[codecov]` |
 | `bin/devtools-config.py` | prints one setting, for the scripts above | — |
 
 Some scripts run another beside them, which must be listed in `[fetch] files` too:
@@ -201,6 +204,22 @@ build first.
 Vitest settings, and the `.npmrc` template; its README covers each. It is released apart from the
 rest of devtools, with its own version and `frontend-config-vX.Y.Z` tags, which publish it to
 npmjs from `.github/workflows/publish-frontend-config.yml`.
+
+## Staying in step
+
+`bin/devtools-check.py` (`make devtools-check`, or the `devtools` check in `[lint] checks`)
+checks that a repository is in step with devtools:
+
+- the vendored fetcher matches the one at the pinned ref (add `fetch/devtools-fetch.sh` to
+  `[fetch] files` so there is a copy to compare with);
+- `.github/dependabot.yml` is what the `[dependabot]` table generates: GitHub Actions, then each
+  `[[dependabot.update]]`, every one grouped into one weekly pull request with a 3-day cooldown
+  that exempts `jigkit` and `@jmerhar/*`;
+- `codecov.yml` is what `coverage.toml` and the `[codecov]` table generate: informational, and
+  one carried-forward flag per suite;
+- the ruff configuration extends the shared base.
+
+`make devtools-fix` writes the two generated files. The script's docstring lists every setting.
 
 ## Config presets
 

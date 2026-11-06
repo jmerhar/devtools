@@ -5,7 +5,7 @@
 # run with bash from the repository root:
 #
 #   [lint]
-#   checks = ["shellcheck", "ruff", "lockfile", "version", "compose"]
+#   checks = ["shellcheck", "ruff", "lockfile", "version", "compose", "devtools"]
 #   ruff = "backend/.venv/bin/ruff"       # optional; RUFF overrides it (default: ruff)
 #   extra = [
 #     ["frontend types", "cd frontend && npx tsc -b --force"],
@@ -17,6 +17,7 @@
 #   - lockfile: check-lockfile.sh
 #   - version: version.py check, against the tag RELEASE_TAG names when it is set
 #   - compose: check-compose.sh
+#   - devtools: devtools-check.py, the fetcher and the generated files in step with devtools
 #
 # Usage: .devtools/bin/lint.sh    (from the repository root)
 set -uo pipefail
@@ -29,10 +30,10 @@ ruff="${RUFF:-$(python3 "$here/devtools-config.py" --default ruff lint.ruff)}" |
 
 mapfile -t checks <<< "$checks_config"
 # Each check and the script beside this one it runs.
-declare -A needs=([ruff]=ci-ruff.sh [lockfile]=check-lockfile.sh [version]=version.py [compose]=check-compose.sh)
+declare -A needs=([ruff]=ci-ruff.sh [lockfile]=check-lockfile.sh [version]=version.py [compose]=check-compose.sh [devtools]=devtools-check.py)
 for check in "${checks[@]}"; do
   case "$check" in
-    shellcheck | ruff | lockfile | version | compose | "") ;;
+    shellcheck | ruff | lockfile | version | compose | devtools | "") ;;
     *)
       echo "lint: unknown check '$check' in [lint] checks" >&2
       exit 1
@@ -68,6 +69,7 @@ for check in "${checks[@]}"; do
     lockfile) run "lockfile registry" "$here/check-lockfile.sh" ;;
     version) run "versions agree" python3 "$here/version.py" check ${RELEASE_TAG:+"$RELEASE_TAG"} ;;
     compose) run "compose files parse" "$here/check-compose.sh" ;;
+    devtools) run "in step with devtools" python3 "$here/devtools-check.py" ;;
   esac
 done
 

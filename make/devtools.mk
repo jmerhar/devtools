@@ -12,8 +12,9 @@
 # The help target lists every target, here and in the Makefile, that has a `## description`;
 # a `##@ Heading` line starts a section.
 
-# Where the fetcher puts the tooling, and the fetcher itself.
+# Where the fetcher puts the tooling, where its scripts are, and the fetcher itself.
 DEVTOOLS_DIR ?= .devtools
+DEVTOOLS_BIN ?= $(DEVTOOLS_DIR)/bin
 DEVTOOLS_FETCH ?= bin/devtools-fetch.sh
 
 # The coverage tooling from jmerhar/coverage, fetched when devtools.toml sets `coverage = true`:
@@ -21,7 +22,7 @@ DEVTOOLS_FETCH ?= bin/devtools-fetch.sh
 #   python3 $(COVERAGE_TOOLING)/coverage-report.py --gate
 COVERAGE_TOOLING := $(DEVTOOLS_DIR)/coverage
 
-.PHONY: help devtools-update coverage-tooling
+.PHONY: help devtools-update coverage-tooling devtools-check devtools-fix
 
 ##@ Shared tooling
 
@@ -36,3 +37,9 @@ devtools-update: ## Fetch the shared tooling at the ref devtools.toml pins
 # Refreshed on every coverage run, because v1 moves within its major version and a local summary
 # should gate on exactly what CI does.
 coverage-tooling: devtools-update ## Fetch the shared coverage tooling
+
+devtools-check: ## Check the fetcher and the generated files are in step with devtools
+	@python3 $(DEVTOOLS_BIN)/devtools-check.py
+
+devtools-fix: ## Write .github/dependabot.yml and codecov.yml as devtools.toml generates them
+	@python3 $(DEVTOOLS_BIN)/devtools-check.py --fix

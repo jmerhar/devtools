@@ -7,6 +7,9 @@ to the latest `v1.x.y`.
 
 ### Added
 
+- `bin/devtools-check.py`, with `make devtools-check`, `make devtools-fix` and a `devtools` lint
+  check: the vendored fetcher, `.github/dependabot.yml` and `codecov.yml` (both generated from
+  devtools.toml) and the ruff configuration, in step with devtools.
 - `frontend-config/`, the `@jmerhar/frontend-config` npm package, released on its own
   `frontend-config-vX.Y.Z` tags by `.github/workflows/publish-frontend-config.yml`.
 

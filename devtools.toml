@@ -8,6 +8,25 @@ coverage = true
 [npm]
 dirs = ["frontend-config"]
 
+# The fetcher's and the ruff base's sources are here, rather than fetched copies.
+[check]
+fetcher = ""
+ruff_base = "config/ruff.toml"
+
+# The development dependencies of the tooling and of frontend-config.
+[[dependabot.update]]
+ecosystem = "pip"
+directory = "/"
+group = "python"
+
+[[dependabot.update]]
+ecosystem = "npm"
+directory = "/frontend-config"
+group = "frontend-config"
+
+[codecov]
+paths = { shell = ["bin/", "fetch/"], python = ["bin/"], js = ["frontend-config/src/"] }
+
 # CI runs through this repository's own .github/workflows/python-docker-app.yml (see ci.yml).
 [ci]
 junit = ["junit/*.xml", "frontend-config/junit/*.xml"]

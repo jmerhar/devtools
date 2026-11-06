@@ -4,6 +4,7 @@
 # This repository uses its own devtools.mk from the working tree rather than a fetched copy, so a
 # change to it is exercised here before it is released; the fetcher is its source copy.
 DEVTOOLS_FETCH := fetch/devtools-fetch.sh
+DEVTOOLS_BIN := bin
 include make/devtools.mk
 
 ##@ Setup

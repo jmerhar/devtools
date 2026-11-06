@@ -58,6 +58,17 @@ TOML
   [[ "$output" == *"the tag is v2.0.0, but the manifests name 1.0.0"* ]]
 }
 
+@test "lint checks the repository is in step with devtools" {
+  printf '[lint]\nchecks = ["devtools"]\n\n[check]\nfetcher = ""\n' > devtools.toml
+  run_script bin/lint.sh
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"--- in step with devtools ---"* ]]
+  [[ "$output" == *"dependabot.yml is not what devtools.toml generates"* ]]
+  python3 "$DEVTOOLS_ROOT/bin/devtools-check.py" --fix
+  run_script bin/lint.sh
+  [ "$status" -eq 0 ]
+}
+
 @test "lint takes ruff from devtools.toml and runs the lockfile check" {
   make_stub "$STUBS/myruff"
   printf '[lint]\nchecks = ["ruff", "lockfile"]\nruff = "%s"\n\n[npm]\ndirs = ["web"]\n' "$STUBS/myruff" > devtools.toml
