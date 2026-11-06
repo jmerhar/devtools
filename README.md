@@ -124,6 +124,7 @@ through the environment (`DOCKER`, `NPM`, `NPX`, `RUFF`, `GH` and so on).
 | `bin/inspect.sh` | runs IntelliJ IDEA's inspections offline | `[inspect] ignore` |
 | `bin/dev.sh` | `docker compose up --build` with hot reload, handing compose the registry npm reaches as `NPM_REGISTRY` unless the environment or `.env` sets it | `[dev] compose_files`: a list of files |
 | `bin/ci.py` | plans the jobs of `python-docker-app.yml` and carries their coverage reports | `[ci]` |
+| `bin/pages-artifact.sh` | archives a built site for GitHub Pages, keeping its hidden files | — |
 | `bin/devtools-check.py` | checks the fetcher and the generated files are in step, and writes them | `[check]`, `[dependabot]`, `[codecov]` |
 | `bin/devtools-config.py` | prints one setting, for the scripts above | — |
 
@@ -195,8 +196,32 @@ least one suite's coverage reports, so its gate always runs. The checks appear a
 where the tooling is and the command that fetches it, for a repository that keeps its fetcher
 somewhere other than `bin/devtools-fetch.sh`.
 
+A repository with only Node or Python suites and no images uses the same workflow: its `[ci]`
+section simply declares no `[[ci.image]]`.
+
 **`tag-release.yml`** publishes a version tag's GitHub release, for a repository with no images to
 build first.
+
+**`pages-deploy.yml`** builds a site and deploys it to GitHub Pages, keeping its hidden files:
+
+```yaml
+jobs:
+  pages:
+    uses: jmerhar/devtools/.github/workflows/pages-deploy.yml@v1
+    with:
+      node: "24"
+      install: npm ci
+      build: npm run build
+      path: dist
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+```
+
+Its inputs set up Node or Python, install, build, and name the directory the site is written to;
+the build gets `GH_TOKEN`, for one that downloads release assets. `bin/pages-artifact.sh` must be in
+`[fetch] files`.
 
 ## @jmerhar/frontend-config
 

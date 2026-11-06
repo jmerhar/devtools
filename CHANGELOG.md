@@ -7,6 +7,8 @@ to the latest `v1.x.y`.
 
 ### Added
 
+- `.github/workflows/pages-deploy.yml`, which builds a site and deploys it to GitHub Pages, with
+  `bin/pages-artifact.sh` archiving it.
 - `bin/devtools-check.py`, with `make devtools-check`, `make devtools-fix` and a `devtools` lint
   check: the vendored fetcher, `.github/dependabot.yml` and `codecov.yml` (both generated from
   devtools.toml) and the ruff configuration, in step with devtools.
