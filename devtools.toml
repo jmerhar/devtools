@@ -3,9 +3,14 @@
 [fetch]
 coverage = true
 
+# frontend-config/, the @jmerhar/frontend-config package, whose lockfile resolves only to the
+# public registry.
+[npm]
+dirs = ["frontend-config"]
+
 # CI runs through this repository's own .github/workflows/python-docker-app.yml (see ci.yml).
 [ci]
-junit = ["junit/*.xml"]
+junit = ["junit/*.xml", "frontend-config/junit/*.xml"]
 coverage_description = "Shared build tooling coverage report"
 # Releases are tags and their CHANGELOG.md sections; there is no manifest to version.
 github_release = false
@@ -31,6 +36,14 @@ name = "shell"
 run = "bash .devtools/coverage/run-kcov.sh"
 env = { JUNIT_DIR = "junit" }
 coverage = ["coverage/shell", "junit"]
+
+# @jmerhar/frontend-config: its types, its own lint, and its tests with coverage.
+[[ci.suite]]
+name = "frontend-config"
+node = true
+install = "npm ci --no-audit --no-fund --prefix frontend-config"
+run = "cd frontend-config && npm run check && npm run lint && npm run coverage"
+coverage = ["frontend-config/coverage", "frontend-config/junit"]
 
 # Fetches this commit's files from GitHub, as a repository using devtools does.
 [[ci.suite]]

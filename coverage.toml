@@ -1,8 +1,9 @@
 # Coverage configuration for the shared tooling in jmerhar/coverage, which renders the CI summary
 # table, enforces the gates and publishes the HTML report.
 #
-# Two suites, because the tooling is shell and Python: the scripts in bin/ and fetch/ are traced by
-# kcov as the bats suites run them, and the Python in bin/ is measured by coverage.py under pytest.
+# Three suites: the scripts in bin/ and fetch/ are traced by kcov as the bats suites run them, the
+# Python in bin/ is measured by coverage.py under pytest, and @jmerhar/frontend-config's JavaScript
+# by Vitest.
 #
 # The gates sit just under the measured figures. Raise them as coverage climbs; never lower one to
 # make a red build pass.
@@ -15,9 +16,10 @@ html = "coverage/shell"
 # test/test_helper.bash applies kcov to each script the suites run, reading COVERAGE_DIR.
 command = "tooling/measure.sh"
 # The fetcher downloads with curl, the suites run under bats, one drives make/devtools.mk, and
-# check-lockfile reads what git tracks, and lint runs ShellCheck.
-packages = ["bats", "curl", "make", "git", "shellcheck"]
-requires = ["bats", "curl", "make", "git", "shellcheck"]
+# check-lockfile reads what git tracks, lint runs ShellCheck, and the release-tag check reads
+# package.json with Node.
+packages = ["bats", "curl", "make", "git", "shellcheck", "nodejs"]
+requires = ["bats", "curl", "make", "git", "shellcheck", "node"]
 # The scripts use mapfile and other bash 4 features.
 min_bash = 4
 # Every line is covered; the margin tolerates a defensive line a test cannot reach.
@@ -29,4 +31,12 @@ format = "coveragepy"
 report = "coverage/python/coverage.json"
 html = "coverage/python/htmlcov"
 # Everything but the `__main__` guard, which a test runs in a subprocess coverage.py does not trace.
+gate = 98.0
+
+[suites.js]
+label = "frontend-config (JavaScript)"
+format = "istanbul"
+report = "frontend-config/coverage/coverage-summary.json"
+html = "frontend-config/coverage/html"
+# Every line and branch is covered.
 gate = 98.0

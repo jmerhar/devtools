@@ -195,6 +195,13 @@ somewhere other than `bin/devtools-fetch.sh`.
 **`tag-release.yml`** publishes a version tag's GitHub release, for a repository with no images to
 build first.
 
+## @jmerhar/frontend-config
+
+`frontend-config/` is an npm package of frontend presets: ESLint, a TypeScript base, Vite and
+Vitest settings, and the `.npmrc` template; its README covers each. It is released apart from the
+rest of devtools, with its own version and `frontend-config-vX.Y.Z` tags, which publish it to
+npmjs from `.github/workflows/publish-frontend-config.yml`.
+
 ## Config presets
 
 **`config/ruff.toml`** holds the shared ruff rules: line length 100, Python 3.14, the rule sets
@@ -215,7 +222,8 @@ picks up fixes on its next fetch; a breaking change goes to `v2`.
 
 ## Developing
 
-`make install` creates the virtualenv; bats and ShellCheck come from Homebrew
+`make install` creates the virtualenv; `tooling/frontend-config.sh` installs the package's own
+Node dependencies when they are missing. bats and ShellCheck come from Homebrew
 (`brew install bats-core shellcheck`), and actionlint runs in its container, so lint needs
 Docker. `make check` runs ShellCheck, ruff, actionlint, both suites and the coverage gates in
 `coverage.toml`: the bats suites under kcov for the shell, and pytest under coverage.py for the

@@ -1,0 +1,94 @@
+{
+  "name": "@jmerhar/frontend-config",
+  "version": "0.1.0",
+  "description": "Shared frontend build configuration: ESLint, TypeScript, Vite and Vitest presets",
+  "license": "MIT",
+  "author": "Jure Merhar",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jmerhar/devtools.git",
+    "directory": "frontend-config"
+  },
+  "homepage": "https://github.com/jmerhar/devtools/tree/main/frontend-config",
+  "type": "module",
+  "files": [
+    "src",
+    "tsconfig.base.json",
+    "npmrc.template",
+    "CHANGELOG.md"
+  ],
+  "exports": {
+    "./eslint": {
+      "types": "./src/eslint.d.ts",
+      "default": "./src/eslint.js"
+    },
+    "./eslint/react": {
+      "types": "./src/react.d.ts",
+      "default": "./src/react.js"
+    },
+    "./vite": {
+      "types": "./src/vite.d.ts",
+      "default": "./src/vite.js"
+    },
+    "./vitest": {
+      "types": "./src/vitest.d.ts",
+      "default": "./src/vitest.js"
+    },
+    "./tsconfig.base.json": "./tsconfig.base.json",
+    "./npmrc.template": "./npmrc.template",
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "check": "tsc --noEmit -p tsconfig.json",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "coverage": "vitest run --coverage"
+  },
+  "peerDependencies": {
+    "@eslint/js": ">=9",
+    "eslint": ">=9",
+    "eslint-plugin-react-hooks": ">=5",
+    "eslint-plugin-react-refresh": ">=0.4",
+    "globals": ">=15",
+    "typescript-eslint": ">=8"
+  },
+  "peerDependenciesMeta": {
+    "@eslint/js": {
+      "optional": true
+    },
+    "eslint": {
+      "optional": true
+    },
+    "eslint-plugin-react-hooks": {
+      "optional": true
+    },
+    "eslint-plugin-react-refresh": {
+      "optional": true
+    },
+    "globals": {
+      "optional": true
+    },
+    "typescript-eslint": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@types/node": "24.4.0",
+    "@vitest/coverage-v8": "5.1.0",
+    "eslint": "10.14.0",
+    "eslint-plugin-react-hooks": "7.1.1",
+    "eslint-plugin-react-refresh": "0.5.7",
+    "globals": "17.14.0",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.72.1",
+    "vitest": "5.1.0"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  }
+}

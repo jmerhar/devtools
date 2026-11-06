@@ -5,6 +5,11 @@ to the latest `v1.x.y`.
 
 ## Unreleased
 
+### Added
+
+- `frontend-config/`, the `@jmerhar/frontend-config` npm package, released on its own
+  `frontend-config-vX.Y.Z` tags by `.github/workflows/publish-frontend-config.yml`.
+
 ## 1.3.1 — 2026-11-06
 
 ### Fixed

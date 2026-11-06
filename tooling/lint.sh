@@ -17,6 +17,7 @@ shellcheck "${scripts[@]}"
 shellcheck -s bash -x test/*.bats test/test_helper.bash
 "$ruff" check .
 "$ruff" format --check .
+bin/check-lockfile.sh
 # actionlint checks the workflows' syntax, expressions and the shell in their run steps.
 docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:1.7.7 -no-color -oneline
 echo "lint passed"

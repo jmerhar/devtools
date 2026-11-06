@@ -2,6 +2,9 @@
 __pycache__/
 .venv/
 
+# Node
+node_modules/
+
 # Test and coverage output
 .coverage
 coverage/

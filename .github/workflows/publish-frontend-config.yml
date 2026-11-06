@@ -1,0 +1,45 @@
+name: Publish frontend-config
+
+# A frontend-config-vX.Y.Z tag publishes @jmerhar/frontend-config at that version to npmjs, with
+# a provenance statement linking the package to this workflow run.
+#
+# npm accepts the run's OIDC token once the package lists this workflow as a trusted publisher;
+# until then it falls back to the NPM_TOKEN secret.
+on:
+  push:
+    tags: ["frontend-config-v*"]
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # The environment can require approval before anything is published.
+    environment: npm
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          registry-url: https://registry.npmjs.org
+
+      - name: Check the tag names the package's version
+        run: tooling/frontend-config-version.sh "$GITHUB_REF_NAME"
+
+      - name: Install, check and test
+        working-directory: frontend-config
+        run: npm ci --no-audit --no-fund && npm run check && npm run lint && npm test
+
+      - name: Publish
+        working-directory: frontend-config
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish --provenance --access public
