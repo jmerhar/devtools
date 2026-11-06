@@ -7,6 +7,10 @@ to the latest `v1.x.y`.
 
 ### Added
 
+- `.github/workflows/python-docker-app.yml`, a reusable workflow that runs the suites and builds
+  the images a repository declares in devtools.toml's `[ci]` section, gates on coverage, and
+  publishes a version tag's GitHub release; planned by `bin/ci.py`.
+- `.github/workflows/tag-release.yml`, the GitHub release on its own.
 - `lint.sh` checks the versions against the tag `RELEASE_TAG` names, when it is set.
 
 ## 1.2.0 — 2026-11-02

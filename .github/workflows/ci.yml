@@ -1,0 +1,29 @@
+name: CI
+
+on:
+  # push is limited to main because pull_request already covers branch work; triggering on both
+  # would run everything twice for every pull request. Tags too, so the files a release tag serves
+  # are fetched and checked once it is pushed.
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+    branches: [main]
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  # The workflow every app uses, run from this commit on the suites devtools.toml declares, with
+  # the tooling in this checkout rather than a fetched copy.
+  ci:
+    uses: ./.github/workflows/python-docker-app.yml
+    with:
+      tooling: .
+      fetcher: fetch/devtools-fetch.sh
+    permissions:
+      contents: write
+      packages: write
+      statuses: write
+    secrets: inherit

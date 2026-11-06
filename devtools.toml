@@ -2,3 +2,37 @@
 # would fetch is here already.
 [fetch]
 coverage = true
+
+# CI runs through this repository's own .github/workflows/python-docker-app.yml (see ci.yml).
+[ci]
+junit = ["junit/*.xml"]
+coverage_description = "Shared build tooling coverage report"
+# Releases are tags and their CHANGELOG.md sections; there is no manifest to version.
+github_release = false
+
+[[ci.suite]]
+name = "lint"
+python = true
+install = "pip install -r requirements-dev.txt"
+run = "tooling/lint.sh"
+env = { RUFF = "ruff" }
+
+[[ci.suite]]
+name = "python"
+python = true
+install = "pip install -r requirements-dev.txt"
+run = "tooling/coverage-python.sh"
+env = { PYTHON = "python", JUNIT_DIR = "junit" }
+coverage = ["coverage/python", "junit"]
+
+# The bats suites under kcov, in the coverage repository's pinned container.
+[[ci.suite]]
+name = "shell"
+run = "bash .devtools/coverage/run-kcov.sh"
+env = { JUNIT_DIR = "junit" }
+coverage = ["coverage/shell", "junit"]
+
+# Fetches this commit's files from GitHub, as a repository using devtools does.
+[[ci.suite]]
+name = "smoke-fetch"
+run = 'tooling/smoke-fetch.sh "${RELEASE_TAG:-$CI_COMMIT}"'

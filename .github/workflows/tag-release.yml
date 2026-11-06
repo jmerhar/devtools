@@ -1,0 +1,45 @@
+name: Tag release
+
+# Publishes a version tag's GitHub release from its CHANGELOG.md section, for a repository with no
+# images to build first. It checks that the manifests devtools.toml's [version] lists name the tag.
+#
+#   on:
+#     push:
+#       tags: ["v*"]
+#   jobs:
+#     release:
+#       uses: jmerhar/devtools/.github/workflows/tag-release.yml@v1
+#       permissions:
+#         contents: write
+on:
+  workflow_call:
+    inputs:
+      tooling:
+        description: Where the shared tooling is, relative to the repository root.
+        type: string
+        default: .devtools
+      fetcher:
+        description: The command that fetches the shared tooling.
+        type: string
+        default: bin/devtools-fetch.sh
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Fetch the shared tooling
+        run: ${{ inputs.fetcher }}
+
+      - name: Create the GitHub release from the changelog
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: ${{ inputs.tooling }}/bin/github-release.sh "$GITHUB_REF_NAME"

@@ -1,0 +1,252 @@
+name: Python Docker app
+
+# Tests a repository and publishes its images, as the [ci] section of its devtools.toml describes
+# (see bin/ci.py): every suite runs as its own job, the coverage of those that keep reports is
+# summarised and gated, the images are built once all of it is green, and a version tag gets its
+# GitHub release.
+#
+# A repository calls it from its own workflow, granting what the jobs below ask for:
+#
+#   jobs:
+#     ci:
+#       uses: jmerhar/devtools/.github/workflows/python-docker-app.yml@v1
+#       permissions:
+#         contents: write     # the GitHub release
+#         packages: write     # the images
+#         statuses: write     # the coverage report's link on the commit
+#       secrets: inherit      # CODECOV_TOKEN and COVERAGE_PAGES_TOKEN, when they exist
+on:
+  workflow_call:
+    inputs:
+      tooling:
+        description: Where the shared tooling is, relative to the repository root.
+        type: string
+        default: .devtools
+      fetcher:
+        description: The command that fetches the shared tooling.
+        type: string
+        default: bin/devtools-fetch.sh
+    secrets:
+      CODECOV_TOKEN:
+        required: false
+      COVERAGE_PAGES_TOKEN:
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      python: ${{ steps.plan.outputs.python }}
+      node: ${{ steps.plan.outputs.node }}
+      suites: ${{ steps.plan.outputs.suites }}
+      has_suites: ${{ steps.plan.outputs.has_suites }}
+      coverage: ${{ steps.plan.outputs.coverage }}
+      junit: ${{ steps.plan.outputs.junit }}
+      coverage_description: ${{ steps.plan.outputs.coverage_description }}
+      images: ${{ steps.plan.outputs.images }}
+      has_images: ${{ steps.plan.outputs.has_images }}
+      push: ${{ steps.plan.outputs.push }}
+      tags: ${{ steps.plan.outputs.tags }}
+      build_args: ${{ steps.plan.outputs.build_args }}
+      provenance: ${{ steps.plan.outputs.provenance }}
+      github_release: ${{ steps.plan.outputs.github_release }}
+    steps:
+      # The whole history, so the images can be matched against what this push or pull request
+      # changed.
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Fetch the shared tooling
+        run: ${{ inputs.fetcher }}
+
+      - name: Plan the jobs
+        id: plan
+        env:
+          TOOLING: ${{ inputs.tooling }}
+          SINCE: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: python3 "$TOOLING/bin/ci.py" plan --event "$GITHUB_EVENT_NAME" --since "$SINCE" >> "$GITHUB_OUTPUT"
+
+  suite:
+    needs: [plan]
+    if: needs.plan.outputs.has_suites == 'true'
+    name: ${{ matrix.name }}
+    runs-on: ubuntu-latest
+    timeout-minutes: ${{ matrix.timeout }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.plan.outputs.suites) }}
+    env:
+      # The version tag being built, or empty, for a suite that checks the release.
+      RELEASE_TAG: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
+      # The commit under test: a pull request's head rather than the merge GitHub tests it as.
+      CI_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+      CI_SUITE: ${{ toJSON(matrix) }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        if: matrix.python
+        with:
+          python-version: ${{ needs.plan.outputs.python }}
+
+      - uses: actions/setup-node@v7
+        if: matrix.node
+        with:
+          node-version: ${{ needs.plan.outputs.node }}
+
+      - name: Fetch the shared tooling
+        run: ${{ inputs.fetcher }}
+
+      # A new key each run saves whatever the suite added; the prefix restores the last one.
+      - uses: actions/cache@v6
+        if: matrix.cache != ''
+        with:
+          path: ${{ matrix.cache }}
+          key: ci-${{ matrix.name }}-${{ runner.os }}-${{ github.run_id }}
+          restore-keys: ci-${{ matrix.name }}-${{ runner.os }}-
+
+      - name: Environment
+        run: python3 "${{ inputs.tooling }}/bin/ci.py" env
+
+      - name: Set up
+        if: matrix.setup != ''
+        run: ${{ matrix.setup }}
+
+      - name: Install
+        if: matrix.install != ''
+        run: ${{ matrix.install }}
+
+      - name: Run
+        run: ${{ matrix.run }}
+
+      # Kept even when the run fails, so the coverage job of a re-run finds every report.
+      - name: Pack the coverage reports
+        if: ${{ !cancelled() && toJSON(matrix.coverage) != '[]' }}
+        run: python3 "${{ inputs.tooling }}/bin/ci.py" pack
+
+      - uses: actions/upload-artifact@v7
+        if: ${{ !cancelled() && toJSON(matrix.coverage) != '[]' }}
+        with:
+          name: coverage-${{ matrix.name }}
+          path: coverage-${{ matrix.name }}.tgz
+          if-no-files-found: error
+
+  coverage:
+    needs: [plan, suite]
+    if: needs.plan.outputs.coverage == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # contents: read for checkout; statuses: write to link the coverage report from the commit.
+    permissions:
+      contents: read
+      statuses: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Fetch the shared tooling
+        run: ${{ inputs.fetcher }}
+
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: coverage-*
+          path: ${{ runner.temp }}/coverage
+
+      # Each suite's reports return to the paths coverage.toml declares.
+      - name: Unpack the coverage reports
+        run: python3 "${{ inputs.tooling }}/bin/ci.py" unpack "$RUNNER_TEMP/coverage"
+
+      - uses: jmerhar/coverage/.github/actions/summary@v1
+
+      # Informational, and before the gate so the data lands even when the gate fails.
+      - uses: jmerhar/coverage/.github/actions/codecov@v1
+        if: ${{ !cancelled() }}
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          junit: ${{ needs.plan.outputs.junit }}
+
+      # Fails the build if a suite drops below its bound in coverage.toml; the images wait for it.
+      - uses: jmerhar/coverage/.github/actions/gate@v1
+
+      # Only on green pushes to main; the action skips when the token is absent.
+      - uses: jmerhar/coverage/.github/actions/publish@v1
+        if: success() && github.event_name == 'push' && github.ref == 'refs/heads/main'
+        with:
+          token: ${{ secrets.COVERAGE_PAGES_TOKEN }}
+          description: ${{ needs.plan.outputs.coverage_description }}
+
+  images:
+    # Only after everything is green, so an image is never built from code whose checks failed.
+    needs: [plan, suite, coverage]
+    if: >-
+      always() && needs.plan.outputs.has_images == 'true'
+      && contains(fromJSON('["success", "skipped"]'), needs.suite.result)
+      && contains(fromJSON('["success", "skipped"]'), needs.coverage.result)
+    name: image ${{ matrix.image }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.plan.outputs.images) }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: docker/setup-buildx-action@v4
+
+      - uses: docker/login-action@v4
+        if: needs.plan.outputs.push == 'true'
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ${{ matrix.image }}
+          tags: ${{ needs.plan.outputs.tags }}
+
+      - uses: docker/build-push-action@v7
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
+          push: ${{ needs.plan.outputs.push == 'true' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: ${{ needs.plan.outputs.build_args }}
+          provenance: ${{ needs.plan.outputs.provenance }}
+          sbom: false
+          cache-from: type=gha,scope=${{ matrix.image }}
+          cache-to: ${{ needs.plan.outputs.push == 'true' && format('type=gha,mode=max,scope={0}', matrix.image) || '' }}
+
+  release:
+    # A version tag's GitHub release, once its images are published.
+    needs: [plan, suite, coverage, images]
+    if: >-
+      always() && github.ref_type == 'tag' && needs.plan.outputs.github_release == 'true'
+      && contains(fromJSON('["success", "skipped"]'), needs.suite.result)
+      && contains(fromJSON('["success", "skipped"]'), needs.coverage.result)
+      && contains(fromJSON('["success", "skipped"]'), needs.images.result)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Fetch the shared tooling
+        run: ${{ inputs.fetcher }}
+
+      - name: Create the GitHub release from the changelog
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: ${{ inputs.tooling }}/bin/github-release.sh "$GITHUB_REF_NAME"

@@ -121,12 +121,75 @@ through the environment (`DOCKER`, `NPM`, `NPX`, `RUFF`, `GH` and so on).
 | `bin/app-icons.sh` | renders the home-screen icons from an SVG | `[icons] svg`, `out`, `background` |
 | `bin/inspect.sh` | runs IntelliJ IDEA's inspections offline | `[inspect] ignore` |
 | `bin/dev.sh` | `docker compose up --build` with hot reload, handing compose the registry npm reaches as `NPM_REGISTRY` unless the environment or `.env` sets it | `[dev] compose_files`: a list of files |
+| `bin/ci.py` | plans the jobs of `python-docker-app.yml` and carries their coverage reports | `[ci]` |
 | `bin/devtools-config.py` | prints one setting, for the scripts above | — |
 
 Some scripts run another beside them, which must be listed in `[fetch] files` too:
 `lockfile.sh` runs `check-lockfile.sh`, `release.sh` and `github-release.sh` run `version.py`,
 `openapi.sh` runs `export-openapi.py`, and `lint.sh` runs the script of each check it lists. Each
 names a missing one before doing anything.
+
+## CI workflows
+
+**`python-docker-app.yml`** runs a repository's CI from the `[ci]` section of its
+`devtools.toml`: each suite as its own job, a coverage job over the suites that keep reports, the
+images once everything is green, and a version tag's GitHub release. The repository's workflow
+only calls it:
+
+```yaml
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+    branches: [main]
+  workflow_dispatch: {}
+
+jobs:
+  ci:
+    uses: jmerhar/devtools/.github/workflows/python-docker-app.yml@v1
+    permissions:
+      contents: write
+      packages: write
+      statuses: write
+    secrets: inherit
+```
+
+The suites and images are declared in `devtools.toml`:
+
+```toml
+[ci]
+junit = ["backend/junit/*.xml"]
+
+[[ci.suite]]
+name = "backend"
+python = true
+install = 'pip install -e "backend[test]"'
+run = "bin/test-backend.sh -v --junitxml=junit/backend.xml --cov=myapp --cov-report=json"
+env = { PYTHON = "python" }
+coverage = ["backend/coverage.json", "backend/junit"]
+
+[[ci.suite]]
+name = "lint"
+python = true
+install = "pip install ruff"
+run = ".devtools/bin/lint.sh"
+env = { RUFF = "ruff" }
+
+[[ci.image]]
+image = "ghcr.io/jmerhar/myapp"
+```
+
+`bin/ci.py`'s docstring lists every key, with its default. Each suite's commands run in the
+repository root after the shared tooling is fetched, with `RELEASE_TAG` set to the version tag
+being built (empty otherwise) and `CI_COMMIT` to the commit under test. An image with `paths` is
+built only when one of them changed. Add `bin/ci.py`, and `bin/version.py` with
+`bin/github-release.sh` for releases, to `[fetch] files`. The `tooling` and `fetcher` inputs name
+where the tooling is and the command that fetches it, for a repository that keeps its fetcher
+somewhere other than `bin/devtools-fetch.sh`.
+
+**`tag-release.yml`** publishes a version tag's GitHub release, for a repository with no images to
+build first.
 
 ## Config presets
 
@@ -149,10 +212,12 @@ picks up fixes on its next fetch; a breaking change goes to `v2`.
 ## Developing
 
 `make install` creates the virtualenv; bats and ShellCheck come from Homebrew
-(`brew install bats-core shellcheck`). `make check` runs ShellCheck, ruff, both suites and the
-coverage gates in `coverage.toml`: the bats suites under kcov for the shell, and pytest under
-coverage.py for the Python. kcov runs locally when it can trace with a modern bash, and in the
-coverage repository's pinned container otherwise.
+(`brew install bats-core shellcheck`), and actionlint runs in its container, so lint needs
+Docker. `make check` runs ShellCheck, ruff, actionlint, both suites and the coverage gates in
+`coverage.toml`: the bats suites under kcov for the shell, and pytest under coverage.py for the
+Python. kcov runs locally when it can trace with a modern bash, and in the coverage repository's
+pinned container otherwise. CI runs the same suites through this repository's own
+`python-docker-app.yml`, so every change to the workflow is exercised before it is released.
 
 ## License
 

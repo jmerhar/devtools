@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Lint everything: ShellCheck over the shell and the bats suites, ruff over the Python.
+# Lint everything: ShellCheck over the shell and the bats suites, ruff over the Python, actionlint
+# over the workflows (in its container, so it needs Docker).
 #
 # Called by `make lint` and by CI. Uses the virtualenv's ruff locally and the runner's in CI, where
 # RUFF names it.
@@ -16,4 +17,6 @@ shellcheck "${scripts[@]}"
 shellcheck -s bash -x test/*.bats test/test_helper.bash
 "$ruff" check .
 "$ruff" format --check .
+# actionlint checks the workflows' syntax, expressions and the shell in their run steps.
+docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:1.7.7 -no-color -oneline
 echo "lint passed"
