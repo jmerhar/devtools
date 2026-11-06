@@ -15,7 +15,7 @@
 #   - shellcheck: ShellCheck over bin/*.sh
 #   - ruff: ci-ruff.sh
 #   - lockfile: check-lockfile.sh
-#   - version: version.py check
+#   - version: version.py check, against the tag RELEASE_TAG names when it is set
 #   - compose: check-compose.sh
 #
 # Usage: .devtools/bin/lint.sh    (from the repository root)
@@ -66,7 +66,7 @@ for check in "${checks[@]}"; do
       ;;
     ruff) run "ruff" env RUFF="$ruff" "$here/ci-ruff.sh" ;;
     lockfile) run "lockfile registry" "$here/check-lockfile.sh" ;;
-    version) run "versions agree" python3 "$here/version.py" check ;;
+    version) run "versions agree" python3 "$here/version.py" check ${RELEASE_TAG:+"$RELEASE_TAG"} ;;
     compose) run "compose files parse" "$here/check-compose.sh" ;;
   esac
 done

@@ -45,6 +45,19 @@ TOML
   [[ "$output" == *"--- passes ---"* ]]
 }
 
+@test "lint checks the versions against the tag RELEASE_TAG names" {
+  printf '[lint]\nchecks = ["version"]\n\n[version]\npyprojects = ["pyproject.toml"]\n' > devtools.toml
+  printf '[project]\nversion = "1.0.0"\n' > pyproject.toml
+  printf '# Changelog\n\n## 1.0.0 — 2026-11-01\n\n- First.\n' > CHANGELOG.md
+  run_script bin/lint.sh
+  [ "$status" -eq 0 ]
+  RELEASE_TAG=v1.0.0 run_script bin/lint.sh
+  [ "$status" -eq 0 ]
+  RELEASE_TAG=v2.0.0 run_script bin/lint.sh
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"the tag is v2.0.0, but the manifests name 1.0.0"* ]]
+}
+
 @test "lint takes ruff from devtools.toml and runs the lockfile check" {
   make_stub "$STUBS/myruff"
   printf '[lint]\nchecks = ["ruff", "lockfile"]\nruff = "%s"\n\n[npm]\ndirs = ["web"]\n' "$STUBS/myruff" > devtools.toml

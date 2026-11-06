@@ -5,6 +5,10 @@ to the latest `v1.x.y`.
 
 ## Unreleased
 
+### Added
+
+- `lint.sh` checks the versions against the tag `RELEASE_TAG` names, when it is set.
+
 ## 1.2.0 — 2026-11-02
 
 ### Added
