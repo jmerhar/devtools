@@ -5,6 +5,8 @@ to the latest `v1.x.y`.
 
 ## Unreleased
 
+## 1.3.0 — 2026-11-06
+
 ### Added
 
 - `.github/workflows/python-docker-app.yml`, a reusable workflow that runs the suites and builds
