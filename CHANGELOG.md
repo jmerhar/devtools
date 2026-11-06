@@ -5,6 +5,8 @@ to the latest `v1.x.y`.
 
 ## Unreleased
 
+## 1.4.0 — 2026-11-06
+
 ### Added
 
 - `.github/workflows/pages-deploy.yml`, which builds a site and deploys it to GitHub Pages, with
