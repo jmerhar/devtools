@@ -25,7 +25,8 @@ an image entry:
     context = "."                            # optional, the default
     dockerfile = "Dockerfile"                # optional: relative to the repository root;
                                              # defaults to <context>/Dockerfile
-    paths = ["backend/"]                     # optional: build only when one of these changed
+    paths = ["backend/"]                     # optional: build only when one of these, the
+                                             # dockerfile, devtools.toml or a workflow changed
 
 Images share the settings that go with how they are deployed:
 
@@ -37,16 +38,26 @@ Images share the settings that go with how they are deployed:
     images_on_pull_request = true # build a pull request's images, without pushing them
     github_release = true         # on a version tag, publish its CHANGELOG.md section
 
+A repository with a coverage.toml must keep at least one suite's coverage, so the gate it
+configures always runs, and the section must declare at least one suite or image.
+
 Commands:
 
-    ci.py plan --event EVENT [--since SHA]   print the workflow's plan as GITHUB_OUTPUT lines
-    ci.py env                                append CI_SUITE's env to $GITHUB_ENV
-    ci.py pack                               pack CI_SUITE's coverage files into coverage-<name>.tgz
-    ci.py unpack DIR                         unpack every coverage-*.tgz in DIR into the repository
+    ci.py plan --event EVENT --ref REF --default-branch BRANCH [--since SHA]
+                    print the workflow's plan as GITHUB_OUTPUT lines
+    ci.py env       append CI_SUITE's env to $GITHUB_ENV
+    ci.py pack      pack CI_SUITE's coverage files into coverage-<name>.tgz
+    ci.py unpack DIR
+                    unpack every coverage-*.tgz in DIR into the repository
+
+Images are pushed only from the default branch and from tags; anything else builds them without
+pushing, so an unmerged branch never replaces a published tag.
 
 --since names the commit the event's changes are measured from: a push's previous head or a pull
-request's base. A tag, a manual run, or a since that git does not know builds every image. A change
-to the workflow files rebuilds every image too, since it may change how all of them are built.
+request's base. An image is built when the tree differs from that commit's in one of its paths,
+which also covers a force-push. A tag, a manual or scheduled run, or a since that git does not
+know builds every image. A push only measures what it adds, so an image whose change landed in a
+run that failed is built by the next run that touches its paths, or by a manual run.
 """
 
 from __future__ import annotations
@@ -61,16 +72,12 @@ import tarfile
 import uuid
 from pathlib import Path
 
-try:
-    import tomllib
-except ImportError:  # pragma: no cover - only reached on Python 3.10 and older
-    sys.exit(
-        f"Python 3.11 or newer is required to read devtools.toml; found {sys.version.split()[0]}"
-    )
-
 NAME = re.compile(r"[A-Za-z0-9_][A-Za-z0-9_.-]*")
 ENV_NAME = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
-WORKFLOWS = ".github/workflows/"
+# Changes that may alter how every image is built.
+EVERY_IMAGE = (".github/workflows/", "devtools.toml")
+# Variables a step cannot set through $GITHUB_ENV, which the runner refuses or owns.
+RESERVED_ENV = re.compile(r"(GITHUB_|RUNNER_).*|NODE_OPTIONS|CI")
 
 CI_KEYS = {
     "python": str,
@@ -154,13 +161,20 @@ def load(path: str = "devtools.toml") -> dict:
     Raises:
         CIError: If the file is missing or invalid, or the section is malformed.
     """
+    # Imported here, so the commands that run under a suite's own Python need no tomllib.
+    try:
+        import tomllib
+    except ImportError:  # pragma: no cover - only reached on Python 3.10 and older
+        raise CIError("Python 3.11 or newer is required to read devtools.toml") from None
     try:
         with open(path, "rb") as f:
-            ci = tomllib.load(f).get("ci", {})
+            ci = tomllib.load(f).get("ci")
     except FileNotFoundError:
         raise CIError(f"no {path}; run this from the repository root") from None
     except tomllib.TOMLDecodeError as e:
         raise CIError(f"{path} is not valid TOML: {e}") from None
+    if ci is None:
+        raise CIError(f"{path} has no [ci] section")
     if not isinstance(ci, dict):
         raise CIError(f"ci in {path} must be a table")
     check_keys(ci, CI_KEYS, "[ci]")
@@ -185,6 +199,13 @@ def load(path: str = "devtools.toml") -> dict:
     if duplicates:
         raise CIError(f"[[ci.suite]] names must be unique: {', '.join(duplicates)}")
     plan["images"] = [image(i, n) for n, i in enumerate(ci.get("image", []), 1)]
+    if not plan["suites"] and not plan["images"]:
+        raise CIError(f"[ci] in {path} declares no [[ci.suite]] and no [[ci.image]]")
+    coverage_toml = Path(path).with_name("coverage.toml")
+    if coverage_toml.is_file() and not any(s["coverage"] for s in plan["suites"]):
+        raise CIError(
+            f"{coverage_toml.name} sets coverage gates, but no [[ci.suite]] keeps coverage reports"
+        )
     return plan
 
 
@@ -203,8 +224,16 @@ def suite(table: object, n: int) -> dict:
     for key, value in env.items():
         if not ENV_NAME.fullmatch(key) or not isinstance(value, str):
             raise CIError(f"[[ci.suite]] {name} env must map variable names to strings")
-        if "\n" in value:
+        if RESERVED_ENV.fullmatch(key):
+            raise CIError(f"[[ci.suite]] {name} env cannot set {key}, which the runner reserves")
+        if "\n" in value or "\r" in value:
             raise CIError(f"[[ci.suite]] {name} env {key} must be one line")
+    coverage = strings(table.get("coverage", []), f"[[ci.suite]] {name} coverage")
+    if not all(relative(entry) for entry in coverage):
+        raise CIError(f"[[ci.suite]] {name} coverage must name paths inside the repository")
+    timeout = table.get("timeout", 30)
+    if timeout < 1:
+        raise CIError(f"[[ci.suite]] {name} timeout must be a positive number of minutes")
     return {
         "name": name,
         "python": table.get("python", False),
@@ -214,9 +243,19 @@ def suite(table: object, n: int) -> dict:
         "install": table.get("install", ""),
         "run": table["run"],
         "env": env,
-        "coverage": strings(table.get("coverage", []), f"[[ci.suite]] {name} coverage"),
-        "timeout": table.get("timeout", 30),
+        "coverage": coverage,
+        "timeout": timeout,
     }
+
+
+def relative(path: str) -> bool:
+    """Whether a path stays inside the repository: not absolute, and no `..`."""
+    return bool(path) and not path.startswith("/") and ".." not in Path(path).parts
+
+
+def prefix(path: str) -> str:
+    """A configured path as git prints it: no leading ./ and no trailing slash."""
+    return path.removeprefix("./").rstrip("/")
 
 
 def image(table: object, n: int) -> dict:
@@ -228,43 +267,50 @@ def image(table: object, n: int) -> dict:
     if not table.get("image"):
         raise CIError(f"{where} needs an image")
     context = table.get("context", ".")
-    return {
-        "image": table["image"],
-        "context": context,
-        "dockerfile": table.get("dockerfile", f"{context.rstrip('/')}/Dockerfile"),
-        "paths": strings(table.get("paths", []), f"{where} paths"),
-    }
+    dockerfile = table.get("dockerfile", f"{context.rstrip('/')}/Dockerfile")
+    paths = strings(table.get("paths", []), f"{where} paths")
+    if not all(relative(p) for p in paths):
+        raise CIError(f"{where} paths must name paths inside the repository")
+    if paths:
+        # The image's own Dockerfile is part of what it is built from.
+        paths = [*paths, dockerfile]
+    return {"image": table["image"], "context": context, "dockerfile": dockerfile, "paths": paths}
 
 
 def changed_files(since: str | None) -> list[str] | None:
-    """The files changed between a commit and HEAD, or None when every image should be built.
+    """The files whose content differs between a commit's tree and HEAD's.
+
+    A tree comparison rather than the commits in between, so a force-push counts everything the
+    new head has that the old one's images were built without. Renames are listed as a deletion
+    and an addition, so both sides count, and names come unquoted.
 
     Args:
         since: The commit to compare with, or None.
 
     Returns:
-        The changed paths, or None when there is no usable commit to compare with.
+        The changed paths, or None when every image should be built: no commit to compare with,
+        or one git does not know.
     """
     if not since or set(since) == {"0"}:
         return None
     result = subprocess.run(
-        ["git", "diff", "--name-only", f"{since}...HEAD"],
+        ["git", "diff", "--name-only", "--no-renames", "-z", since, "HEAD"],
         capture_output=True,
         text=True,
         check=False,
     )
     if result.returncode != 0:
         return None
-    return [line for line in result.stdout.splitlines() if line]
+    return [path for path in result.stdout.split("\0") if path]
 
 
 def wanted(entry: dict, changed: list[str] | None) -> bool:
     """Whether an image is built for a set of changes."""
     if changed is None or not entry["paths"]:
         return True
-    if any(path.startswith(WORKFLOWS) for path in changed):
-        return True
-    return any(path.startswith(prefix) for path in changed for prefix in entry["paths"])
+    shared = [prefix(p) for p in EVERY_IMAGE]
+    prefixes = [prefix(p) for p in entry["paths"]] + shared
+    return any(path == p or path.startswith(p + "/") for path in changed for p in prefixes)
 
 
 def output_lines(values: dict[str, str]) -> str:
@@ -279,21 +325,29 @@ def output_lines(values: dict[str, str]) -> str:
     return "\n".join(lines) + "\n"
 
 
-def plan(config: dict, event: str, since: str | None) -> dict[str, str]:
+def plan(
+    config: dict, event: str, since: str | None, ref: str = "", default_branch: str = ""
+) -> dict[str, str]:
     """Work out what the workflow runs for an event.
 
     Args:
         config: The checked [ci] section.
         event: The GitHub event name.
         since: The commit the event's changes are measured from, if any.
+        ref: The ref the run is for, such as refs/heads/main or refs/tags/v1.2.3.
+        default_branch: The repository's default branch.
 
     Returns:
         The workflow's outputs, as strings.
     """
-    pull_request = event == "pull_request"
+    pull_request = event.startswith("pull_request")
+    tag = ref.startswith("refs/tags/")
+    on_default = bool(default_branch) and ref == f"refs/heads/{default_branch}"
+    push = not pull_request and (tag or on_default)
     images = []
     if config["images"] and not (pull_request and not config["images_on_pull_request"]):
-        changed = None if event in {"workflow_dispatch", "schedule"} else changed_files(since)
+        every = tag or event in {"workflow_dispatch", "schedule"}
+        changed = None if every else changed_files(since)
         images = [i for i in config["images"] if wanted(i, changed)]
     for entry in images:
         del entry["paths"]
@@ -310,7 +364,7 @@ def plan(config: dict, event: str, since: str | None) -> dict[str, str]:
         "coverage_description": config["coverage_description"],
         "images": json.dumps(images),
         "has_images": json.dumps(bool(images)),
-        "push": json.dumps(not pull_request),
+        "push": json.dumps(push),
         "tags": "\n".join(TAGS[config["image_tags"]]),
         "build_args": build_args,
         "provenance": json.dumps(config["provenance"]),
@@ -331,14 +385,14 @@ def write_env(entry: dict) -> str:
     return "".join(f"{key}={value}\n" for key, value in entry.get("env", {}).items())
 
 
-def _without_links(member: tarfile.TarInfo) -> tarfile.TarInfo | None:
-    """Leave symbolic and hard links out of an archive.
+def _without_symlinks(member: tarfile.TarInfo) -> tarfile.TarInfo | None:
+    """Leave symbolic links out of an archive.
 
-    A report's links (kcov keeps one per traced script, pointing into its own output by absolute
-    path) are shortcuts no report reads, and a link can point outside the repository, which
-    unpacking refuses.
+    A report's symbolic links (kcov keeps one per traced script, pointing into its own output by
+    absolute path) are shortcuts no report reads, and one can point outside the repository, which
+    unpacking refuses. Hard links stay: they name files inside the archive.
     """
-    return None if member.issym() or member.islnk() else member
+    return None if member.issym() else member
 
 
 def pack(entry: dict, root: Path) -> Path:
@@ -361,7 +415,7 @@ def pack(entry: dict, root: Path) -> Path:
     archive = root / f"coverage-{entry['name']}.tgz"
     with tarfile.open(archive, "w:gz") as tar:
         for path in entry["coverage"]:
-            tar.add(root / path, arcname=path, filter=_without_links)
+            tar.add(root / path, arcname=path, filter=_without_symlinks)
     return archive
 
 
@@ -390,6 +444,8 @@ def main(argv: list[str] | None = None) -> int:
     commands = parser.add_subparsers(dest="command", required=True)
     planner = commands.add_parser("plan")
     planner.add_argument("--event", required=True)
+    planner.add_argument("--ref", required=True)
+    planner.add_argument("--default-branch", required=True)
     planner.add_argument("--since", default=None)
     commands.add_parser("env")
     commands.add_parser("pack")
@@ -398,7 +454,9 @@ def main(argv: list[str] | None = None) -> int:
     root = Path.cwd()
     try:
         if args.command == "plan":
-            sys.stdout.write(output_lines(plan(load(args.config), args.event, args.since)))
+            config = load(args.config)
+            values = plan(config, args.event, args.since, args.ref, args.default_branch)
+            sys.stdout.write(output_lines(values))
         elif args.command == "env":
             target = os.environ.get("GITHUB_ENV")
             if not target:

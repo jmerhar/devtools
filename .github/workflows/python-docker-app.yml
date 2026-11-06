@@ -56,10 +56,11 @@ jobs:
       github_release: ${{ steps.plan.outputs.github_release }}
     steps:
       # The whole history, so the images can be matched against what this push or pull request
-      # changed.
+      # changed. No job keeps the token in .git/config, where a build context could read it.
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Fetch the shared tooling
         run: ${{ inputs.fetcher }}
@@ -69,7 +70,10 @@ jobs:
         env:
           TOOLING: ${{ inputs.tooling }}
           SINCE: ${{ github.event.pull_request.base.sha || github.event.before }}
-        run: python3 "$TOOLING/bin/ci.py" plan --event "$GITHUB_EVENT_NAME" --since "$SINCE" >> "$GITHUB_OUTPUT"
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: >-
+          python3 "$TOOLING/bin/ci.py" plan --event "$GITHUB_EVENT_NAME" --ref "$GITHUB_REF"
+          --default-branch "$DEFAULT_BRANCH" --since "$SINCE" >> "$GITHUB_OUTPUT"
 
   suite:
     needs: [plan]
@@ -89,6 +93,8 @@ jobs:
       CI_SUITE: ${{ toJSON(matrix) }}
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
       - uses: actions/setup-python@v7
         if: matrix.python
@@ -125,7 +131,8 @@ jobs:
       - name: Run
         run: ${{ matrix.run }}
 
-      # Kept even when the run fails, so the coverage job of a re-run finds every report.
+      # Kept even when the run fails, so the coverage job of a re-run finds every report; a re-run
+      # replaces its own artifact.
       - name: Pack the coverage reports
         if: ${{ !cancelled() && toJSON(matrix.coverage) != '[]' }}
         run: python3 "${{ inputs.tooling }}/bin/ci.py" pack
@@ -136,6 +143,7 @@ jobs:
           name: coverage-${{ matrix.name }}
           path: coverage-${{ matrix.name }}.tgz
           if-no-files-found: error
+          overwrite: true
 
   coverage:
     needs: [plan, suite]
@@ -148,6 +156,8 @@ jobs:
       statuses: write
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
       - name: Fetch the shared tooling
         run: ${{ inputs.fetcher }}
@@ -182,9 +192,10 @@ jobs:
 
   images:
     # Only after everything is green, so an image is never built from code whose checks failed.
+    # Pushed only from the default branch and tags (see bin/ci.py), and stopped by a cancel.
     needs: [plan, suite, coverage]
     if: >-
-      always() && needs.plan.outputs.has_images == 'true'
+      !cancelled() && needs.plan.outputs.has_images == 'true'
       && contains(fromJSON('["success", "skipped"]'), needs.suite.result)
       && contains(fromJSON('["success", "skipped"]'), needs.coverage.result)
     name: image ${{ matrix.image }}
@@ -199,6 +210,8 @@ jobs:
         include: ${{ fromJSON(needs.plan.outputs.images) }}
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
       - uses: docker/setup-buildx-action@v4
 
@@ -232,7 +245,7 @@ jobs:
     # A version tag's GitHub release, once its images are published.
     needs: [plan, suite, coverage, images]
     if: >-
-      always() && github.ref_type == 'tag' && needs.plan.outputs.github_release == 'true'
+      !cancelled() && github.ref_type == 'tag' && needs.plan.outputs.github_release == 'true'
       && contains(fromJSON('["success", "skipped"]'), needs.suite.result)
       && contains(fromJSON('["success", "skipped"]'), needs.coverage.result)
       && contains(fromJSON('["success", "skipped"]'), needs.images.result)
@@ -242,6 +255,8 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
       - name: Fetch the shared tooling
         run: ${{ inputs.fetcher }}

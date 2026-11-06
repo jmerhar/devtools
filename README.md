@@ -182,8 +182,12 @@ image = "ghcr.io/jmerhar/myapp"
 
 `bin/ci.py`'s docstring lists every key, with its default. Each suite's commands run in the
 repository root after the shared tooling is fetched, with `RELEASE_TAG` set to the version tag
-being built (empty otherwise) and `CI_COMMIT` to the commit under test. An image with `paths` is
-built only when one of them changed. Add `bin/ci.py`, and `bin/version.py` with
+being built (empty otherwise) and `CI_COMMIT` to the commit under test. Images are pushed only
+from the default branch and from tags; a pull request or another branch builds them without
+pushing. An image with `paths` is built only when one of them, its Dockerfile, `devtools.toml` or
+a workflow changed; a manual run builds them all. A repository with a `coverage.toml` must keep at
+least one suite's coverage reports, so its gate always runs. The checks appear as
+`ci / <suite name>`, which is what branch protection names. Add `bin/ci.py`, and `bin/version.py` with
 `bin/github-release.sh` for releases, to `[fetch] files`. The `tooling` and `fetcher` inputs name
 where the tooling is and the command that fetches it, for a repository that keeps its fetcher
 somewhere other than `bin/devtools-fetch.sh`.

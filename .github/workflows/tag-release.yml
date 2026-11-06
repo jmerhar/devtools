@@ -35,6 +35,8 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
       - name: Fetch the shared tooling
         run: ${{ inputs.fetcher }}
