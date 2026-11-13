@@ -1,4 +1,4 @@
 # What the test suites and the linters need, for `make install` and CI.
-coverage==7.17.1
+coverage==7.17.2
 pytest==9.2.0
-ruff==0.17.3
+ruff==0.17.4
