@@ -5,6 +5,14 @@ to the latest `v1.x.y`.
 
 ## Unreleased
 
+### Added
+
+- `bin/npm-ci.sh`, which installs each `[npm]` directory's packages from its lockfile through the
+  registry npm reaches, and `make/npm.mk`, with the `node-modules` and `lockfile` targets.
+- `[codecov] fixes`, path rewrites written into the generated `codecov.yml`.
+- `devtools-check.py` refuses `npm install` in the Makefile of a repository with an `[npm]` table,
+  and a `make/npm.mk` fetched without the scripts it runs.
+
 ## 1.4.1 — 2026-11-06
 
 ### Added

@@ -1,6 +1,6 @@
 #!/usr/bin/env bats
 # shellcheck disable=SC2016  # stub bodies are written literally, to expand when the stub runs
-# bin/lockfile.sh and bin/check-lockfile.sh, with docker and npm replaced by stubs.
+# bin/lockfile.sh, bin/check-lockfile.sh and bin/npm-ci.sh, with docker and npm replaced by stubs.
 
 load test_helper
 
@@ -229,6 +229,57 @@ stub_docker() {
 @test "lockfile refuses an empty list of directories" {
   printf '[npm]\ndirs = []\n' > devtools.toml
   run_script bin/lockfile.sh
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"[npm] dirs in devtools.toml is empty"* ]]
+}
+
+# --- npm-ci.sh ---
+
+@test "npm-ci installs every listed directory through the registry npm reaches" {
+  printf '[npm]\ndirs = ["frontend", "site"]\n' > devtools.toml
+  write_lockfile frontend/package-lock.json "${PUBLIC}a/-/a-1.tgz"
+  write_lockfile site/package-lock.json "${PUBLIC}a/-/a-1.tgz"
+  make_stub "$STUBS/npm" 'echo "cwd=$PWD" >> "$STUB_LOG"' \
+    '[ "$1" = config ] && echo https://proxy.example/registry/api/npm/npm-remote/; exit 0'
+  NPM="$STUBS/npm" run_script bin/npm-ci.sh
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"npm-ci: installing site through https://proxy.example/"* ]]
+  expected="npm config get registry
+cwd=/
+npm ci --no-audit --no-fund --registry=https://proxy.example/registry/api/npm/npm-remote/
+cwd=$REPO/frontend
+npm ci --no-audit --no-fund --registry=https://proxy.example/registry/api/npm/npm-remote/
+cwd=$REPO/site"
+  [ "$(cat "$STUB_LOG")" = "$expected" ]
+}
+
+@test "npm-ci installs only the directory named, through the public registry without npm's answer" {
+  printf '[npm]\ndirs = ["frontend", "site"]\n' > devtools.toml
+  write_lockfile site/package-lock.json "${PUBLIC}a/-/a-1.tgz"
+  make_stub "$STUBS/npm" '[ "$1" = config ] && echo undefined; exit 0'
+  NPM="$STUBS/npm" run_script bin/npm-ci.sh site
+  [ "$status" -eq 0 ]
+  [ "$(grep -c '^npm ci' "$STUB_LOG")" -eq 1 ]
+  grep -q "^npm ci --no-audit --no-fund --registry=$PUBLIC\$" "$STUB_LOG"
+}
+
+@test "npm-ci stops at a directory without a lockfile, and at a failed install" {
+  printf '[npm]\ndirs = ["frontend", "site"]\n' > devtools.toml
+  write_lockfile site/package-lock.json "${PUBLIC}a/-/a-1.tgz"
+  make_stub "$STUBS/npm" '[ "$1" = ci ] && exit 3; exit 0'
+  NPM="$STUBS/npm" run_script bin/npm-ci.sh
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"frontend has no package-lock.json; make lockfile writes one"* ]]
+  refute grep -q '^npm ci' "$STUB_LOG"
+  write_lockfile frontend/package-lock.json "${PUBLIC}a/-/a-1.tgz"
+  NPM="$STUBS/npm" run_script bin/npm-ci.sh
+  [ "$status" -eq 3 ]
+  [ "$(grep -c '^npm ci' "$STUB_LOG")" -eq 1 ]
+}
+
+@test "npm-ci refuses an empty list of directories" {
+  printf '[npm]\ndirs = []\n' > devtools.toml
+  run_script bin/npm-ci.sh
   [ "$status" -eq 1 ]
   [[ "$output" == *"[npm] dirs in devtools.toml is empty"* ]]
 }

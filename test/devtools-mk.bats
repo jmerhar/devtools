@@ -102,3 +102,23 @@ MAKE
   [[ "$output" == *"devtools-fetch: 4 files current"* ]]
   [[ "$output" == *"testing"* ]]
 }
+
+@test "node-modules and lockfile appear once the repository fetches npm.mk" {
+  make >/dev/null
+  run make help
+  [[ "$output" != *"make node-modules"* ]]
+  cp "$DEVTOOLS_ROOT/make/npm.mk" "$UPSTREAM/devtools/v1/make/"
+  printf '#!/usr/bin/env bash\necho "npm-ci $*"\n' > "$UPSTREAM/devtools/v1/bin/npm-ci.sh"
+  printf '#!/usr/bin/env bash\necho "lockfile $*"\n' > "$UPSTREAM/devtools/v1/bin/lockfile.sh"
+  printf '[fetch]\nref = "v1"\nfiles = ["make/devtools.mk", "make/npm.mk", "bin/npm-ci.sh", "bin/lockfile.sh"]\n' > devtools.toml
+  touch -t 202201010000 devtools.toml
+  touch -t 202101010000 .devtools/make/devtools.mk
+  run make help
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"npm"*"make node-modules"*"Install each npm directory's node_modules"* ]]
+  [[ "$output" == *"make lockfile"*"Regenerate each npm directory's package-lock.json"* ]]
+  run make node-modules
+  [ "$output" = "npm-ci " ]
+  run make lockfile
+  [ "$output" = "lockfile " ]
+}

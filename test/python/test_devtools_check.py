@@ -233,6 +233,13 @@ class TestCodecov:
         )
         assert "informational: true" in text
 
+    def test_path_fixes_before_the_flags(self):
+        text = check.codecov({"codecov": {"fixes": ["/src/::"]}}, {"suites": {"shell": {}}})
+        assert text.endswith(
+            'comment: false\n\nfixes:\n  - "/src/::"\n\nflags:\n  shell:\n    carryforward: true\n'
+        )
+        assert "fixes" not in check.codecov({}, {"suites": {"shell": {}}})
+
     def test_no_flags_without_suites(self):
         assert check.codecov({}, {}).endswith("comment: false\n")
 
@@ -242,6 +249,8 @@ class TestCodecov:
             ({"path": {}}, "[codecov] has unknown keys: path"),
             ({"paths": {"web": ["web/"]}}, "names suites coverage.toml lacks: web"),
             ({"paths": {"backend": "backend/"}}, "paths backend must list paths"),
+            ({"fixes": "/src/::"}, "[codecov] fixes must be a list"),
+            ({"fixes": [1]}, "[codecov] fixes must list strings"),
         ],
     )
     def test_refuses_a_malformed_table(self, table, message):
@@ -355,6 +364,49 @@ class TestChecks:
         write(repo, "devtools.toml", "check = 1\n")
         with pytest.raises(check.CheckError, match=r"\[check\] must be a table"):
             check.checks(repo)
+
+
+class TestNpm:
+    @pytest.mark.parametrize(
+        "recipe",
+        [
+            "\tcd web && npm install",
+            "\tnpm i --save-dev x",
+            "\tcd web; npm   add left-pad",
+            "NPM_INSTALL = cd web && npm install",
+        ],
+    )
+    def test_refuses_npm_install_in_the_makefile(self, repo, recipe):
+        write(repo, "devtools.toml", "[npm]\ndirs = ['web']\n")
+        write(repo, "Makefile", f"install:\n\techo setup\n{recipe}\n")
+        [problem] = check.checks(repo, fix=True)
+        assert problem.startswith("Makefile:3 runs npm install")
+        assert problem.endswith("run `$(MAKE) node-modules` from make/npm.mk")
+
+    @pytest.mark.parametrize(
+        ("toml", "makefile"),
+        [
+            ("[npm]\ndirs = ['web']\n", "install:\n\tcd web && npm ci\n\tnpm init -y\n"),
+            ("[npm]\ndirs = ['web']\n", "# npm install writes the lockfile\nx:\n\t@true # npm i\n"),
+            ("[fetch]\n", "install:\n\tnpm install\n"),
+        ],
+    )
+    def test_passes_other_npm_commands_comments_and_repositories_without_npm(
+        self, repo, toml, makefile
+    ):
+        write(repo, "devtools.toml", toml)
+        write(repo, "Makefile", makefile)
+        assert check.checks(repo, fix=True) == []
+
+    def test_npm_mk_needs_its_scripts(self, repo):
+        listed = '"make/npm.mk", "bin/npm-ci.sh"'
+        write(repo, "devtools.toml", f"[fetch]\nfiles = [{listed}]\n")
+        assert check.checks(repo, fix=True) == [
+            "make/npm.mk needs bin/lockfile.sh, bin/check-lockfile.sh in [fetch] files"
+        ]
+        listed += ', "bin/lockfile.sh", "bin/check-lockfile.sh"'
+        write(repo, "devtools.toml", f"[fetch]\nfiles = [{listed}]\n")
+        assert check.checks(repo, fix=True) == []
 
 
 class TestMain:

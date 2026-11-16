@@ -99,6 +99,15 @@ coverage: coverage-tooling
 	python3 $(COVERAGE_TOOLING)/coverage-report.py --gate
 ```
 
+`make/npm.mk`, included when `[fetch] files` lists it along with `bin/npm-ci.sh`,
+`bin/lockfile.sh` and `bin/check-lockfile.sh`, adds two targets for the directories `[npm] dirs`
+lists:
+
+| Target | Does |
+|---|---|
+| `node-modules` | runs `npm-ci.sh`; a repository's own `install` target runs `$(MAKE) node-modules` |
+| `lockfile` | runs `lockfile.sh` |
+
 The repository keeps its own `test`, `lint`, `check`, `dev`, `build` and `deploy` targets.
 
 ## Scripts
@@ -113,6 +122,7 @@ through the environment (`DOCKER`, `NPM`, `NPX`, `RUFF`, `GH` and so on).
 | `bin/ci-ruff.sh` | `ruff check` and `ruff format --check` over the repository | — |
 | `bin/check-compose.sh` | `docker compose config -q` for each stack | `[compose] stacks`: lists of files passed together with `-f` |
 | `bin/check-lockfile.sh` | checks every npm lockfile resolves only to the public registry | `[npm] dirs`, plus every tracked `package-lock.json` |
+| `bin/npm-ci.sh` | runs `npm ci` in each npm directory through the registry npm reaches outside the project | `[npm] dirs` |
 | `bin/lockfile.sh` | regenerates lockfiles in a Linux node container, rewriting proxy URLs to the public registry | `[npm] dirs`, `node_image` |
 | `bin/version.py` | checks, sets and prints the release version across manifests, the compose file and `CHANGELOG.md` | `[version] pyprojects`, `npm`, `images`, `compose` |
 | `bin/release.sh` | cuts a release on main: version, dated changelog, commit and tag | `[release] title`, `note` |
@@ -241,8 +251,10 @@ checks that a repository is in step with devtools:
   `[[dependabot.update]]`, every one grouped into one weekly pull request with a 3-day cooldown
   that exempts `jigkit` and `@jmerhar/*`;
 - `codecov.yml` is what `coverage.toml` and the `[codecov]` table generate: informational, and
-  one carried-forward flag per suite;
-- the ruff configuration extends the shared base.
+  one carried-forward flag per suite, with any path `fixes`;
+- the ruff configuration extends the shared base;
+- with an `[npm]` table, no Makefile line runs `npm install`, which writes the registry it
+  reaches into the lockfile, and `make/npm.mk` comes with the scripts it runs.
 
 `make devtools-fix` writes the two generated files. The script's docstring lists every setting.
 

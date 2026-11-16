@@ -9,6 +9,7 @@
 #   	bin/devtools-fetch.sh
 #
 # The repository keeps its own test, dev, build and deploy targets, and its own lint and check.
+# Listing make/npm.mk in [fetch] files adds node-modules and lockfile (see that file).
 # The help target lists every target, here and in the Makefile, that has a `## description`;
 # a `##@ Heading` line starts a section.
 
@@ -43,3 +44,6 @@ devtools-check: ## Check the fetcher and the generated files are in step with de
 
 devtools-fix: ## Write .github/dependabot.yml and codecov.yml as devtools.toml generates them
 	@python3 $(DEVTOOLS_BIN)/devtools-check.py --fix
+
+# The npm targets, when [fetch] files lists make/npm.mk.
+-include $(DEVTOOLS_DIR)/make/npm.mk

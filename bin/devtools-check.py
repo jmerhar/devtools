@@ -14,6 +14,9 @@ The checks:
 - codecov.yml, when there is a coverage.toml, is what it generates: informational statuses, no
   comment, and one carried-forward flag per suite.
 - The ruff configuration, when there is one, extends the shared base.
+- With an [npm] table, the Makefile installs packages through make/npm.mk's node-modules rather
+  than a bare `npm install`, which writes the registry it reached into the lockfile; and listing
+  make/npm.mk in [fetch] files also lists the scripts its targets run.
 
     [check]
     fetcher = "bin/devtools-fetch.sh"   # optional: where the fetcher is vendored; "" for none
@@ -31,6 +34,7 @@ The checks:
 
     [codecov]
     paths = { backend = ["backend/"] }  # optional: the files each suite's flag covers
+    fixes = ["/src/::"]                 # optional: path rewrites, for reports measured elsewhere
 
 Usage: .devtools/bin/devtools-check.py [--fix]    (from the repository root)
 """
@@ -61,6 +65,10 @@ UPDATE_KEYS = {
 }
 IGNORE_KEYS = {"dependency": str, "update_types": list}
 NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9_-]*")
+#: The scripts make/npm.mk's targets run.
+NPM_MK_FILES = ["bin/npm-ci.sh", "bin/lockfile.sh", "bin/check-lockfile.sh"]
+#: An npm command that resolves packages afresh and rewrites the lockfile.
+NPM_INSTALL = re.compile(r"\bnpm\s+(install|i|add)\b")
 
 
 class CheckError(Exception):
@@ -211,8 +219,11 @@ def dependabot(config: dict) -> str:
 def codecov(config: dict, coverage: dict) -> str:
     """Generate codecov.yml from coverage.toml's suites and devtools.toml's [codecov] table."""
     table = config.get("codecov", {})
-    check_table(table, {"paths": dict}, "[codecov]")
+    check_table(table, {"paths": dict, "fixes": list}, "[codecov]")
     paths = table.get("paths", {})
+    fixes = table.get("fixes", [])
+    if not all(isinstance(f, str) for f in fixes):
+        raise CheckError("[codecov] fixes must list strings")
     suites = coverage.get("suites", {})
     unknown = sorted(set(paths) - set(suites))
     if unknown:
@@ -235,6 +246,8 @@ def codecov(config: dict, coverage: dict) -> str:
         "",
         "comment: false",
     ]
+    if fixes:
+        lines += ["", "fixes:"] + [f"  - {quote(f)}" for f in fixes]
     if suites:
         lines += ["", "flags:"]
         for suite in suites:
@@ -268,6 +281,34 @@ def ruff_extends_base(root: Path, base: str = RUFF_BASE) -> str | None:
         if resolved != (root / base).resolve():
             return f"{path.relative_to(root)} does not extend {base}"
     return None
+
+
+def npm_problems(root: Path, config: dict) -> list[str]:
+    """Why the repository's npm setup is not the shared one, a line per problem.
+
+    Args:
+        root: The repository root.
+        config: devtools.toml.
+
+    Returns:
+        A line for each Makefile line that runs a bare `npm install` while devtools.toml has an
+        [npm] table, and one for each script make/npm.mk needs that [fetch] files leaves out.
+    """
+    problems = []
+    files = config.get("fetch", {}).get("files", [])
+    if "make/npm.mk" in files:
+        missing = [f for f in NPM_MK_FILES if f not in files]
+        if missing:
+            problems.append(f"make/npm.mk needs {', '.join(missing)} in [fetch] files")
+    makefile = root / "Makefile"
+    if "npm" in config and makefile.is_file():
+        for n, line in enumerate(makefile.read_text(encoding="utf-8").splitlines(), 1):
+            if NPM_INSTALL.search(line.split("#", 1)[0]):
+                problems.append(
+                    f"Makefile:{n} runs npm install, which writes the registry it reaches into "
+                    "the lockfile; run `$(MAKE) node-modules` from make/npm.mk"
+                )
+    return problems
 
 
 def checks(root: Path, fix: bool = False) -> list[str]:
@@ -319,6 +360,7 @@ def checks(root: Path, fix: bool = False) -> list[str]:
     ruff = ruff_extends_base(root, table.get("ruff_base", RUFF_BASE))
     if ruff:
         problems.append(ruff)
+    problems += npm_problems(root, config)
     return problems
 
 
