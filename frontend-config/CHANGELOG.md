@@ -5,6 +5,8 @@ All notable changes to @jmerhar/frontend-config are recorded here. Releases are 
 
 ## Unreleased
 
+## 0.1.0 — 2026-11-16
+
 ### Added
 
 - `eslint`: `base()` and `node()`; `eslint/react`: `react()`.
