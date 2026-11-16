@@ -30,6 +30,8 @@ updates:
         patterns:
           - "*"
 
+  # typescript-eslint names the TypeScript versions it supports as a peer dependency, so a
+  # new major cannot install until it accepts it; move both by hand then.
   - package-ecosystem: "npm"
     directory: "/frontend-config"
     schedule:
@@ -38,6 +40,9 @@ updates:
       default-days: 3
       exclude:
         - "@jmerhar/*"
+    ignore:
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
     groups:
       frontend-config:
         patterns:
