@@ -5,6 +5,8 @@ to the latest `v1.x.y`.
 
 ## Unreleased
 
+## 1.5.0 — 2026-11-16
+
 ### Added
 
 - `bin/npm-ci.sh`, which installs each `[npm]` directory's packages from its lockfile through the
