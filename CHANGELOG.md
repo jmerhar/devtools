@@ -5,6 +5,8 @@ to the latest `v1.x.y`.
 
 ## Unreleased
 
+## 1.7.0 — 2026-11-17
+
 ### Added
 
 - `[[dependabot.update]] majors`: `"hold"` (the default) sends majors to a `-majors` group for a
