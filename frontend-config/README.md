@@ -49,7 +49,7 @@ export default mergeConfig(app(), { plugins: [svelte()] });
 
 The dev server hands `/api` to `VITE_API_TARGET`, or to `http://127.0.0.1:8000` (`app({ apiTarget
 })` names another), and a build targets the browsers in `BROWSERS` and writes the licences of
-everything bundled to `licenses.md`.
+everything bundled to `licenses.md` (Vite 8 or later; older versions ignore the setting).
 
 ## Vitest
 

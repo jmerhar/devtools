@@ -5,6 +5,10 @@ All notable changes to @jmerhar/frontend-config are recorded here. Releases are 
 
 ## Unreleased
 
+### Changed
+
+- The README says `licenses.md` needs Vite 8 or later.
+
 ## 0.1.0 — 2026-11-16
 
 ### Added
