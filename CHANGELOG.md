@@ -5,6 +5,13 @@ to the latest `v1.x.y`.
 
 ## Unreleased
 
+### Changed
+
+- The generated `dependabot.yml` sends each update's majors to a group of their own, named after
+  its group with `-majors` added, so a major needing a migration no longer holds back the minor
+  and patch releases grouped with it. `[[dependabot.update]] update_types` names what the main
+  group takes (minor and patch by default) and must list only `major`, `minor` and `patch`.
+
 ## 1.5.0 — 2026-11-16
 
 ### Added

@@ -23,9 +23,6 @@ group = "python"
 ecosystem = "npm"
 directory = "/frontend-config"
 group = "frontend-config"
-comment = """typescript-eslint names the TypeScript versions it supports as a peer dependency, so a
-new major cannot install until it accepts it; move both by hand then."""
-ignore = [{ dependency = "typescript", update_types = ["version-update:semver-major"] }]
 
 [codecov]
 paths = { shell = ["bin/", "fetch/"], python = ["bin/"], js = ["frontend-config/src/"] }

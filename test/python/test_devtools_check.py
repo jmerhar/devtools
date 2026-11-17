@@ -56,6 +56,14 @@ class TestDependabot:
             "      actions:\n"
             "        patterns:\n"
             '          - "*"\n'
+            "        update-types:\n"
+            '          - "minor"\n'
+            '          - "patch"\n'
+            "      actions-majors:\n"
+            "        patterns:\n"
+            '          - "*"\n'
+            "        update-types:\n"
+            '          - "major"\n'
         )
 
     def test_each_update_with_its_options(self):
@@ -109,7 +117,26 @@ class TestDependabot:
         assert gradle.endswith(
             '      gradle:\n        patterns:\n          - "*"\n'
             '        update-types:\n          - "minor"\n          - "patch"\n'
+            '      gradle-majors:\n        patterns:\n          - "*"\n'
+            '        update-types:\n          - "major"\n'
         )
+
+    def test_a_group_that_takes_majors_has_no_majors_group(self):
+        entry = {"ecosystem": "pip", "directory": "/", "update_types": ["major", "minor", "patch"]}
+        text = check.dependabot({"dependabot": {"update": [entry]}}).split('"pip"')[1]
+        assert text.endswith(
+            '      pip:\n        patterns:\n          - "*"\n        update-types:\n'
+            '          - "major"\n          - "minor"\n          - "patch"\n'
+        )
+        assert "pip-majors" not in text
+
+    def test_a_group_of_patches_alone_still_has_a_majors_group(self):
+        entry = {"ecosystem": "pip", "directory": "/", "update_types": ["patch"]}
+        text = check.dependabot({"dependabot": {"update": [entry]}}).split('"pip"')[1]
+        group = '      pip:\n        patterns:\n          - "*"\n        update-types:\n'
+        assert group + '          - "patch"\n      pip-majors:' in text
+        majors = '      pip-majors:\n        patterns:\n          - "*"\n        update-types:\n'
+        assert text.endswith(majors + '          - "major"\n')
 
     def test_one_update_over_several_directories(self):
         config = {
@@ -213,6 +240,18 @@ class TestDependabot:
             (
                 {"update": [{"ecosystem": "github-actions", "directory": "/"}]},
                 "dependabot lists github-actions in / twice",
+            ),
+            (
+                {
+                    "update": [
+                        {"ecosystem": "npm", "directory": "/", "update_types": ["semver-major"]}
+                    ]
+                },
+                "update_types must list major, minor or patch",
+            ),
+            (
+                {"update": [{"ecosystem": "npm", "directory": "/", "update_types": []}]},
+                "update_types must list major, minor or patch",
             ),
         ],
     )

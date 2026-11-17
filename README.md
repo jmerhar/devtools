@@ -248,8 +248,10 @@ checks that a repository is in step with devtools:
 - the vendored fetcher matches the one at the pinned ref (add `fetch/devtools-fetch.sh` to
   `[fetch] files` so there is a copy to compare with);
 - `.github/dependabot.yml` is what the `[dependabot]` table generates: GitHub Actions, then each
-  `[[dependabot.update]]`, every one grouped into one weekly pull request with a 3-day cooldown
-  that exempts `jigkit` and `@jmerhar/*`;
+  `[[dependabot.update]]`, with a 3-day cooldown that exempts `jigkit` and `@jmerhar/*`. Each
+  update's minor and patch releases arrive as one weekly pull request, and its majors as another,
+  in a group named after the first with `-majors` added, to migrate by hand. Security updates are
+  not grouped;
 - `codecov.yml` is what `coverage.toml` and the `[codecov]` table generate: informational, and
   one carried-forward flag per suite, with any path `fixes`;
 - the ruff configuration extends the shared base;
