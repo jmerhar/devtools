@@ -5,6 +5,8 @@ to the latest `v1.x.y`.
 
 ## Unreleased
 
+## 1.6.0 — 2026-11-17
+
 ### Changed
 
 - The generated `dependabot.yml` sends each update's majors to a group of their own, named after
