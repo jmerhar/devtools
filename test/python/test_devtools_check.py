@@ -59,7 +59,7 @@ class TestDependabot:
             "        update-types:\n"
             '          - "minor"\n'
             '          - "patch"\n'
-            "      actions-majors:\n"
+            "      actions-majors-auto:\n"
             "        patterns:\n"
             '          - "*"\n'
             "        update-types:\n"
@@ -137,6 +137,12 @@ class TestDependabot:
         assert group + '          - "patch"\n      pip-majors:' in text
         majors = '      pip-majors:\n        patterns:\n          - "*"\n        update-types:\n'
         assert text.endswith(majors + '          - "major"\n')
+
+    def test_majors_merged_when_green_go_to_their_own_group(self):
+        entry = {"ecosystem": "docker", "directory": "/", "majors": "merge"}
+        text = check.dependabot({"dependabot": {"update": [entry]}}).split('"docker"')[1]
+        assert "      docker-majors-auto:\n" in text
+        assert "docker-majors:" not in text
 
     def test_one_update_over_several_directories(self):
         config = {
@@ -252,6 +258,10 @@ class TestDependabot:
             (
                 {"update": [{"ecosystem": "npm", "directory": "/", "update_types": []}]},
                 "update_types must list major, minor or patch",
+            ),
+            (
+                {"update": [{"ecosystem": "npm", "directory": "/", "majors": "auto"}]},
+                "majors must be hold or merge",
             ),
         ],
     )
@@ -446,6 +456,62 @@ class TestNpm:
         listed += ', "bin/lockfile.sh", "bin/check-lockfile.sh"'
         write(repo, "devtools.toml", f"[fetch]\nfiles = [{listed}]\n")
         assert check.checks(repo, fix=True) == []
+
+
+class TestInstallScripts:
+    LOCK = {
+        "packages": {
+            "": {"name": "app", "hasInstallScript": True},
+            "node_modules/esbuild": {"hasInstallScript": True},
+            "node_modules/vite/node_modules/esbuild": {"hasInstallScript": True},
+            "node_modules/@parcel/watcher": {"hasInstallScript": True},
+            "node_modules/my-fsevents": {"name": "fsevents", "hasInstallScript": True},
+            "node_modules/react": {},
+        }
+    }
+
+    def setup_app(self, repo, allow=None):
+        import json
+
+        write(repo, "devtools.toml", "[npm]\ndirs = ['web']\n")
+        write(repo, "web/package-lock.json", json.dumps(self.LOCK))
+        manifest = {"name": "app"} if allow is None else {"name": "app", "allowScripts": allow}
+        write(repo, "web/package.json", json.dumps(manifest))
+
+    def test_names_every_package_with_an_install_script_left_undecided(self, repo):
+        self.setup_app(repo)
+        assert check.checks(repo, fix=True) == [
+            "web/package.json allowScripts decides nothing for @parcel/watcher, esbuild, "
+            "fsevents (install scripts); set each to false, or to true if the package needs its "
+            "script"
+        ]
+
+    def test_a_decision_by_name_or_version_covers_every_copy(self, repo):
+        self.setup_app(
+            repo, {"esbuild": False, "@parcel/watcher@2.5.1": True, "fsevents@2.3.3": False}
+        )
+        assert check.checks(repo, fix=True) == []
+
+    def test_refuses_a_decision_that_is_not_true_or_false(self, repo):
+        self.setup_app(repo, {"esbuild": "no", "@parcel/watcher": False, "fsevents": False})
+        assert check.checks(repo, fix=True) == [
+            "web/package.json allowScripts esbuild must be true or false"
+        ]
+        self.setup_app(repo, ["esbuild"])
+        assert check.checks(repo, fix=True) == [
+            "web/package.json allowScripts must map package names to true or false"
+        ]
+
+    def test_passes_over_a_directory_without_a_lockfile(self, repo):
+        self.setup_app(repo)
+        (repo / "web" / "package-lock.json").unlink()
+        assert check.checks(repo, fix=True) == []
+
+    def test_reports_a_lockfile_that_is_not_json(self, repo):
+        self.setup_app(repo)
+        write(repo, "web/package-lock.json", "{")
+        with pytest.raises(check.CheckError, match="^web: "):
+            check.checks(repo, fix=True)
 
 
 class TestMain:

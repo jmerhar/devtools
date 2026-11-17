@@ -5,6 +5,18 @@ to the latest `v1.x.y`.
 
 ## Unreleased
 
+### Added
+
+- `[[dependabot.update]] majors`: `"hold"` (the default) sends majors to a `-majors` group for a
+  hand migration; `"merge"` sends them to a `-majors-auto` group, merged once its checks pass.
+- `devtools-check.py` requires each `[npm]` directory's `package.json` to decide under
+  `allowScripts` for every package in its lockfile with an install script.
+
+### Changed
+
+- GitHub Actions majors go to an `actions-majors-auto` group, merged once their checks pass,
+  rather than waiting for a hand migration.
+
 ## 1.6.0 — 2026-11-17
 
 ### Changed

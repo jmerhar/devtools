@@ -11,14 +11,19 @@ The checks:
 - .github/dependabot.yml is what the [dependabot] table generates: GitHub Actions, then each
   update listed, every one taking a release only once it is three days old, apart from the
   packages released from the same hands. Each update's minor and patch releases arrive as one
-  weekly pull request, and its majors as another, named after the group with "-majors" added,
-  which waits for a hand migration. Security updates are not grouped either way.
+  weekly pull request, and its majors as another. Majors that wait for a hand migration go to a
+  group named after the first with "-majors" added; those merged once their checks pass, as
+  GitHub Actions' are, to one with "-majors-auto" added. Security updates are not grouped.
 - codecov.yml, when there is a coverage.toml, is what it generates: informational statuses, no
   comment, and one carried-forward flag per suite.
 - The ruff configuration, when there is one, extends the shared base.
 - With an [npm] table, the Makefile installs packages through make/npm.mk's node-modules rather
   than a bare `npm install`, which writes the registry it reached into the lockfile; and listing
   make/npm.mk in [fetch] files also lists the scripts its targets run.
+- With an [npm] table, each directory's package.json decides, under allowScripts, for every
+  package in its lockfile that has an install script: false to skip it, true to run it. An
+  install script runs code on every machine that installs the package, so a new one stops for a
+  decision rather than running unseen.
 
     [check]
     fetcher = "bin/devtools-fetch.sh"   # optional: where the fetcher is vendored; "" for none
@@ -32,6 +37,8 @@ The checks:
     update_types = ["minor", "patch"]   # optional: what the group takes (the default); the rest
                                         # go to the "-majors" group, which exists unless the
                                         # group takes majors itself
+    majors = "hold"                     # optional: "hold" majors for a hand migration (the
+                                        # default) or "merge" them when green
     cooldown = 3                        # optional, days; 0 for none
     cooldown_exclude = ["jigkit"]       # optional; defaults by ecosystem (see COOLDOWN_EXCLUDE)
     ignore = [{ dependency = "typescript", update_types = ["version-update:semver-major"] }]
@@ -66,13 +73,15 @@ UPDATE_KEYS = {
     "cooldown": int,
     "cooldown_exclude": list,
     "ignore": list,
+    "majors": str,
 }
 IGNORE_KEYS = {"dependency": str, "update_types": list}
 #: What a group takes unless its update says otherwise; majors go to a group of their own.
 GROUP_UPDATE_TYPES = ["minor", "patch"]
 UPDATE_TYPES = {"major", "minor", "patch"}
-#: Appended to a group's name for the group of its majors.
-MAJORS_SUFFIX = "-majors"
+#: Appended to a group's name for the group of its majors, by what happens to them: held for a
+#: hand migration, or merged once their checks pass.
+MAJORS_SUFFIX = {"hold": "-majors", "merge": "-majors-auto"}
 NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9_-]*")
 #: The scripts make/npm.mk's targets run.
 NPM_MK_FILES = ["bin/npm-ci.sh", "bin/lockfile.sh", "bin/check-lockfile.sh"]
@@ -142,7 +151,10 @@ def updates(config: dict) -> list[dict]:
     """The Dependabot updates: GitHub Actions first, then each [[dependabot.update]], checked."""
     table = config.get("dependabot", {})
     check_table(table, {"update": list}, "[dependabot]")
-    entries = [{"ecosystem": "github-actions", "directory": "/", "group": "actions"}]
+    # An action's major rarely needs more than the version in its uses: line, so they merge.
+    entries = [
+        {"ecosystem": "github-actions", "directory": "/", "group": "actions", "majors": "merge"}
+    ]
     for n, entry in enumerate(table.get("update", []), 1):
         where = f"[[dependabot.update]] {n}"
         check_table(entry, UPDATE_KEYS, where)
@@ -166,6 +178,8 @@ def updates(config: dict) -> list[dict]:
         types = entry.get("update_types", GROUP_UPDATE_TYPES)
         if not types or not set(types) <= UPDATE_TYPES:
             raise CheckError(f"{where} update_types must list major, minor or patch")
+        if entry.get("majors", "hold") not in MAJORS_SUFFIX:
+            raise CheckError(f"{where} majors must be hold or merge")
         entries.append(entry)
     seen = set()
     for entry in entries:
@@ -184,9 +198,10 @@ def dependabot(config: dict) -> str:
         "# table rather than this file, which `devtools-check.py` compares with what it generates.",
         "#",
         "# Weekly updates: per ecosystem, one pull request of minor and patch releases and one",
-        "# of majors, which waits for a hand migration. A release is taken once it is three days",
-        "# old, so a hijacked version has usually been pulled before an update proposes it; the",
-        "# packages released from the same hands are taken at once.",
+        "# of majors. A -majors group waits for a hand migration; a -majors-auto group is merged",
+        "# once its checks pass. A release is taken once it is three days old, so a hijacked",
+        "# version has usually been pulled before an update proposes it; the packages released",
+        "# from the same hands are taken at once.",
         "version: 2",
         "updates:",
     ]
@@ -221,7 +236,7 @@ def dependabot(config: dict) -> str:
         types = entry.get("update_types", GROUP_UPDATE_TYPES)
         groups = [(group, types)]
         if "major" not in types:
-            groups.append((group + MAJORS_SUFFIX, ["major"]))
+            groups.append((group + MAJORS_SUFFIX[entry.get("majors", "hold")], ["major"]))
         lines.append("    groups:")
         for name, group_types in groups:
             lines += [
@@ -329,6 +344,58 @@ def npm_problems(root: Path, config: dict) -> list[str]:
     return problems
 
 
+def package_name(key: str) -> str:
+    """The package an allowScripts key names: "esbuild", "esbuild@0.25.0" and "@s/p@1" alike."""
+    scope = "@" if key.startswith("@") else ""
+    return scope + key[len(scope) :].split("@", 1)[0]
+
+
+def install_script_problems(root: Path, directory: str) -> list[str]:
+    """The packages with install scripts in a directory's lockfile that its package.json's
+    allowScripts makes no decision about, or decides with something other than true or false.
+
+    Args:
+        root: The repository root.
+        directory: An npm directory from [npm] dirs.
+
+    Returns:
+        A line per problem; none when the directory has no lockfile, which check-lockfile reports.
+    """
+    import json
+
+    lock, manifest = root / directory / "package-lock.json", root / directory / "package.json"
+    if not lock.is_file() or not manifest.is_file():
+        return []
+    where = (Path(directory) / "package.json").as_posix()
+    try:
+        packages = json.loads(lock.read_text(encoding="utf-8")).get("packages", {})
+        allow = json.loads(manifest.read_text(encoding="utf-8")).get("allowScripts", {})
+    except json.JSONDecodeError as e:
+        raise CheckError(f"{directory}: {e}") from None
+    if not isinstance(allow, dict):
+        return [f"{where} allowScripts must map package names to true or false"]
+    problems = [
+        f"{where} allowScripts {key} must be true or false"
+        for key, value in allow.items()
+        if not isinstance(value, bool)
+    ]
+    decided = {package_name(key) for key in allow}
+    scripted = sorted(
+        {
+            entry.get("name") or path.rsplit("node_modules/", 1)[-1]
+            for path, entry in packages.items()
+            if path and entry.get("hasInstallScript")
+        }
+    )
+    undecided = [name for name in scripted if name not in decided]
+    if undecided:
+        problems.append(
+            f"{where} allowScripts decides nothing for {', '.join(undecided)} (install scripts); "
+            "set each to false, or to true if the package needs its script"
+        )
+    return problems
+
+
 def checks(root: Path, fix: bool = False) -> list[str]:
     """Run every check, writing the generated files first when fix is set.
 
@@ -379,6 +446,8 @@ def checks(root: Path, fix: bool = False) -> list[str]:
     if ruff:
         problems.append(ruff)
     problems += npm_problems(root, config)
+    for directory in config.get("npm", {}).get("dirs", []):
+        problems += install_script_problems(root, directory)
     return problems
 
 

@@ -249,14 +249,18 @@ checks that a repository is in step with devtools:
   `[fetch] files` so there is a copy to compare with);
 - `.github/dependabot.yml` is what the `[dependabot]` table generates: GitHub Actions, then each
   `[[dependabot.update]]`, with a 3-day cooldown that exempts `jigkit` and `@jmerhar/*`. Each
-  update's minor and patch releases arrive as one weekly pull request, and its majors as another,
-  in a group named after the first with `-majors` added, to migrate by hand. Security updates are
-  not grouped;
+  update's minor and patch releases arrive as one weekly pull request, and its majors as another:
+  a `-majors` group to migrate by hand, or, with `majors = "merge"` (the default for GitHub
+  Actions), a `-majors-auto` group that is merged once its checks pass. Security updates are not
+  grouped;
 - `codecov.yml` is what `coverage.toml` and the `[codecov]` table generate: informational, and
   one carried-forward flag per suite, with any path `fixes`;
 - the ruff configuration extends the shared base;
 - with an `[npm]` table, no Makefile line runs `npm install`, which writes the registry it
-  reaches into the lockfile, and `make/npm.mk` comes with the scripts it runs.
+  reaches into the lockfile, and `make/npm.mk` comes with the scripts it runs;
+- with an `[npm]` table, each directory's `package.json` decides under `allowScripts`, `false` or
+  `true`, for every package in its lockfile with an install script, so a new one stops for review
+  instead of running code on every install.
 
 `make devtools-fix` writes the two generated files. The script's docstring lists every setting.
 
