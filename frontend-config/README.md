@@ -25,6 +25,18 @@ more `globals`. `node()` gives configuration files, and the scripts named, Node'
 `eslint-plugin-react-refresh`. Install `eslint`, `@eslint/js`, `typescript-eslint` and `globals`
 beside it.
 
+```js
+// eslint.config.js, for a Svelte application
+import { base, node } from "@jmerhar/frontend-config/eslint";
+import { svelte } from "@jmerhar/frontend-config/eslint/svelte";
+
+export default [...base(), ...svelte(), node()];
+```
+
+`svelte()` applies eslint-plugin-svelte's recommended rules to components and rune modules
+(`*.svelte`, `*.svelte.ts`, `*.svelte.js`), and the same TypeScript rules as `base()` to their
+scripts. It comes after `base()` and needs `eslint-plugin-svelte`.
+
 ## TypeScript
 
 ```json

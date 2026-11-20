@@ -25,6 +25,23 @@ export const NODE_FILES = ["*.config.{js,mjs,cjs,ts}"];
 /** Plain JavaScript, linted with the recommended JavaScript rules. */
 export const JS_FILES = ["**/*.{js,mjs,cjs}"];
 
+/** An argument named with a leading underscore is unused on purpose, kept for its position. */
+/** @type {import("eslint").Linter.RuleEntry} */
+export const UNUSED_ARGS = ["error", { argsIgnorePattern: "^_" }];
+
+/**
+ * The rules the TypeScript files get: the recommended JavaScript and typescript-eslint rules, with
+ * unused underscored arguments allowed.
+ *
+ * @type {import("eslint").Linter.RulesRecord}
+ */
+export const TYPESCRIPT_RULES = Object.assign(
+  {},
+  js.configs.recommended.rules,
+  ...tseslint.configs.recommended.map((config) => config.rules ?? {}),
+  { "@typescript-eslint/no-unused-vars": UNUSED_ARGS },
+);
+
 /**
  * The configuration for an application's browser code.
  *
@@ -41,10 +58,7 @@ export function base({ files = ["**/*.{ts,tsx}"], ignores = [], globals: extra =
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
     files,
     languageOptions,
-    rules: {
-      // An argument named with a leading underscore is unused on purpose, kept for its position.
-      "@typescript-eslint/no-unused-vars": ["error", { argsIgnorePattern: "^_" }],
-    },
+    rules: { "@typescript-eslint/no-unused-vars": UNUSED_ARGS },
   });
   return [
     { ignores: [...IGNORES, ...ignores] },
@@ -54,7 +68,7 @@ export function base({ files = ["**/*.{ts,tsx}"], ignores = [], globals: extra =
       languageOptions: { ...languageOptions, sourceType: "module" },
       rules: {
         ...js.configs.recommended.rules,
-        "no-unused-vars": ["error", { argsIgnorePattern: "^_" }],
+        "no-unused-vars": UNUSED_ARGS,
       },
     },
     // typescript-eslint's configuration types are its own; ESLint reads them as its own too.

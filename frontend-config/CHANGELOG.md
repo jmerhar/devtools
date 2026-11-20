@@ -5,6 +5,14 @@ All notable changes to @jmerhar/frontend-config are recorded here. Releases are 
 
 ## Unreleased
 
+## 0.2.0 — 2026-11-20
+
+### Added
+
+- `eslint/svelte`: `svelte()`, eslint-plugin-svelte's recommended rules and the TypeScript rules
+  for components and rune modules.
+- `eslint`: `UNUSED_ARGS` and `TYPESCRIPT_RULES`, the rule settings `base()` applies.
+
 ### Changed
 
 - The README says `licenses.md` needs Vite 8 or later.

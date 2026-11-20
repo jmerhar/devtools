@@ -14,3 +14,9 @@ export declare function base(options?: {
 }): Linter.Config[];
 /** Node's globals for files that run in Node: build scripts and configuration files. */
 export declare function node(files?: string[]): Linter.Config;
+
+/** The rule entry that allows unused arguments named with a leading underscore. */
+export declare const UNUSED_ARGS: Linter.RuleEntry;
+
+/** The rules the TypeScript files get. */
+export declare const TYPESCRIPT_RULES: Linter.RulesRecord;
