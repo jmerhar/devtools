@@ -5,6 +5,8 @@ to the latest `v1.x.y`.
 
 ## Unreleased
 
+## 1.8.0 — 2026-11-25
+
 ### Added
 
 - `[ci] platforms`, and `platforms` on a `[[ci.image]]`: the platforms an image is built for,
