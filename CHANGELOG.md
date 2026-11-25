@@ -5,6 +5,12 @@ to the latest `v1.x.y`.
 
 ## Unreleased
 
+### Added
+
+- `[ci] platforms`, and `platforms` on a `[[ci.image]]`: the platforms an image is built for,
+  such as `["linux/amd64", "linux/arm64"]`. Platforms other than the runner's own are built under
+  QEMU emulation. Without them, an image is built for the runner's own platform.
+
 ## 1.7.0 — 2026-11-17
 
 ### Added

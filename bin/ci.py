@@ -27,6 +27,7 @@ an image entry:
                                              # defaults to <context>/Dockerfile
     paths = ["backend/"]                     # optional: build only when one of these, the
                                              # dockerfile, devtools.toml or a workflow changed
+    platforms = ["linux/amd64"]              # optional: overrides [ci] platforms for this image
 
 Images share the settings that go with how they are deployed:
 
@@ -36,6 +37,9 @@ Images share the settings that go with how they are deployed:
     revision_arg = "REVISION"     # the build argument given the commit SHA ("" for none)
     provenance = true             # a provenance attestation on pushed images
     images_on_pull_request = true # build a pull request's images, without pushing them
+    platforms = []                # the platforms each image is built for, such as
+                                  # ["linux/amd64", "linux/arm64"]; none means the runner's own,
+                                  # and any other is emulated with QEMU
     github_release = true         # on a version tag, publish its CHANGELOG.md section
 
 A repository with a coverage.toml must keep at least one suite's coverage, so the gate it
@@ -91,6 +95,7 @@ CI_KEYS = {
     "revision_arg": str,
     "provenance": bool,
     "images_on_pull_request": bool,
+    "platforms": list,
     "github_release": bool,
     "suite": list,
     "image": list,
@@ -107,7 +112,9 @@ SUITE_KEYS = {
     "coverage": list,
     "timeout": int,
 }
-IMAGE_KEYS = {"image": str, "context": str, "dockerfile": str, "paths": list}
+IMAGE_KEYS = {"image": str, "context": str, "dockerfile": str, "paths": list, "platforms": list}
+#: A platform docker buildx builds for: an OS, an architecture and an optional variant.
+PLATFORM = re.compile(r"linux/[a-z0-9]+(/v[0-9]+)?")
 TAGS = {
     "release": [
         "type=edge",
@@ -201,7 +208,8 @@ def load(path: str = "devtools.toml") -> dict:
     duplicates = sorted({n for n in names if names.count(n) > 1})
     if duplicates:
         raise CIError(f"[[ci.suite]] names must be unique: {', '.join(duplicates)}")
-    plan["images"] = [image(i, n) for n, i in enumerate(ci.get("image", []), 1)]
+    platforms = platform_list(ci.get("platforms", []), "[ci] platforms")
+    plan["images"] = [image(i, n, platforms) for n, i in enumerate(ci.get("image", []), 1)]
     if not plan["suites"] and not plan["images"]:
         raise CIError(f"[ci] in {path} declares no [[ci.suite]] and no [[ci.image]]")
     coverage_toml = Path(path).with_name("coverage.toml")
@@ -275,8 +283,30 @@ def prefix(path: str) -> str:
     return path.removeprefix("./").rstrip("/")
 
 
-def image(table: object, n: int) -> dict:
-    """Check one [[ci.image]] table and fill in its defaults."""
+def platform_list(value: object, where: str) -> list[str]:
+    """Check a list of build platforms.
+
+    Args:
+        value: The setting's value.
+        where: Where it comes from, for the error message.
+
+    Returns:
+        The platforms, each once.
+
+    Raises:
+        CIError: If it is not a list of platforms such as "linux/arm64", or names one twice.
+    """
+    platforms = strings(value, where)
+    if not all(PLATFORM.fullmatch(p) for p in platforms):
+        raise CIError(f'{where} must name platforms such as "linux/amd64" or "linux/arm64"')
+    if len(set(platforms)) != len(platforms):
+        raise CIError(f"{where} names a platform twice")
+    return platforms
+
+
+def image(table: object, n: int, platforms: list[str] | None = None) -> dict:
+    """Check one [[ci.image]] table and fill in its defaults, among them the platforms it is
+    built for: its own, or else those [ci] names; "" when neither does."""
     where = f"[[ci.image]] {n}"
     if not isinstance(table, dict):
         raise CIError(f"{where} must be a table")
@@ -291,7 +321,15 @@ def image(table: object, n: int) -> dict:
     if paths:
         # The image's own Dockerfile is part of what it is built from.
         paths = [*paths, dockerfile]
-    return {"image": table["image"], "context": context, "dockerfile": dockerfile, "paths": paths}
+    if "platforms" in table:
+        platforms = platform_list(table["platforms"], f"{where} platforms")
+    return {
+        "image": table["image"],
+        "context": context,
+        "dockerfile": dockerfile,
+        "paths": paths,
+        "platforms": ",".join(platforms or []),
+    }
 
 
 def changed_files(since: str | None) -> list[str] | None:

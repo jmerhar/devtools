@@ -5,6 +5,7 @@ from __future__ import annotations
 import importlib.util
 import json
 import os
+import re
 import subprocess
 import sys
 import tarfile
@@ -113,20 +114,60 @@ class TestLoad:
             '[[ci.image]]\nimage = "ghcr.io/x/w"\ndockerfile = "w.Dockerfile"\npaths = ["w/"]\n'
         )
         assert ci.load()["images"] == [
-            {"image": "ghcr.io/x/app", "context": ".", "dockerfile": "./Dockerfile", "paths": []},
+            {
+                "image": "ghcr.io/x/app",
+                "context": ".",
+                "dockerfile": "./Dockerfile",
+                "paths": [],
+                "platforms": "",
+            },
             {
                 "image": "ghcr.io/x/api",
                 "context": "backend/",
                 "dockerfile": "backend/Dockerfile",
                 "paths": [],
+                "platforms": "",
             },
             {
                 "image": "ghcr.io/x/w",
                 "context": ".",
                 "dockerfile": "w.Dockerfile",
                 "paths": ["w/", "w.Dockerfile"],
+                "platforms": "",
             },
         ]
+
+    def test_platforms_for_every_image_or_one(self, repo):
+        repo(
+            '[ci]\nplatforms = ["linux/amd64", "linux/arm64"]\n'
+            '[[ci.image]]\nimage = "ghcr.io/x/app"\n'
+            '[[ci.image]]\nimage = "ghcr.io/x/api"\nplatforms = ["linux/arm/v7"]\n'
+            '[[ci.image]]\nimage = "ghcr.io/x/w"\nplatforms = []\n'
+        )
+        assert [i["platforms"] for i in ci.load()["images"]] == [
+            "linux/amd64,linux/arm64",
+            "linux/arm/v7",
+            "",
+        ]
+
+    APP = '[[ci.image]]\nimage = "ghcr.io/x/app"\n'
+
+    @pytest.mark.parametrize(
+        ("text", "message"),
+        [
+            ('[ci]\nplatforms = ["arm64"]\n' + APP, "[ci] platforms must name platforms such as"),
+            ('[ci]\nplatforms = ["linux/arm64", "linux/arm64"]\n' + APP, "names a platform twice"),
+            ('[ci]\nplatforms = "linux/arm64"\n' + APP, "[ci] platforms must be a list"),
+            (
+                APP + 'platforms = ["windows/amd64"]\n',
+                "[[ci.image]] 1 platforms must name platforms",
+            ),
+        ],
+    )
+    def test_refuses_bad_platforms(self, repo, text, message):
+        repo(text)
+        with pytest.raises(ci.CIError, match=re.escape(message)):
+            ci.load()
 
     @pytest.mark.parametrize(
         ("text", "message"),
@@ -300,7 +341,12 @@ paths = ["frontend/"]
         commit("frontend/b.ts", "b")
         out = ci.plan(ci.load(), "push", before, **MAIN)
         assert json.loads(out["images"]) == [
-            {"image": "ghcr.io/x/web", "context": ".", "dockerfile": "./Dockerfile"}
+            {
+                "image": "ghcr.io/x/web",
+                "context": ".",
+                "dockerfile": "./Dockerfile",
+                "platforms": "",
+            }
         ]
         assert (out["has_images"], out["push"]) == ("true", "true")
 
